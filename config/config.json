@@ -1,0 +1,18 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/spfx-build/config.2.0.schema.json",
+  "version": "2.0",
+  "bundles": {
+    "sedc-signature-generator-web-part": {
+      "components": [
+        {
+          "entrypoint": "./lib/webparts/sedcSignatureGenerator/SedcSignatureGeneratorWebPart.js",
+          "manifest": "./src/webparts/sedcSignatureGenerator/SedcSignatureGeneratorWebPart.manifest.json"
+        }
+      ]
+    }
+  },
+  "externals": {},
+  "localizedResources": {
+    "SedcSignatureGeneratorWebPartStrings": "lib/webparts/sedcSignatureGenerator/loc/{locale}.js"
+  }
+}

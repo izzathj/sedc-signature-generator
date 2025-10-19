@@ -1,0 +1,130 @@
+.sedcSignatureGenerator {
+  padding: 20px;
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.title {
+  font-size: 24px;
+  font-weight: 600;
+  margin-bottom: 20px;
+  color: #0078d4;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 30px;
+}
+
+.controls {
+  background: #f3f2f1;
+  padding: 20px;
+  border-radius: 4px;
+}
+
+.controls h3 {
+  font-size: 16px;
+  font-weight: 600;
+  margin-top: 20px;
+  margin-bottom: 10px;
+}
+
+.controls h3:first-child {
+  margin-top: 0;
+}
+
+.userInfo {
+  background: white;
+  padding: 15px;
+  border-radius: 4px;
+  margin-bottom: 10px;
+}
+
+.userInfo p {
+  margin: 5px 0;
+  font-size: 14px;
+}
+
+.templateButtons {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+  
+  button {
+    flex: 1 1 calc(50% - 5px);
+    min-width: 120px;
+  }
+}
+
+.preview {
+  background: white;
+  padding: 20px;
+  border: 1px solid #edebe9;
+  border-radius: 4px;
+}
+
+.preview h3 {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 15px;
+}
+
+.previewBox {
+  background: #fafafa;
+  padding: 20px;
+  border: 1px solid #edebe9;
+  border-radius: 4px;
+  min-height: 200px;
+  margin-bottom: 20px;
+}
+
+.instructions {
+  background: #fff4ce;
+  padding: 15px;
+  border-radius: 4px;
+  border-left: 4px solid #ffb900;
+}
+
+.instructions h4 {
+  font-size: 14px;
+  font-weight: 600;
+  margin-top: 0;
+  margin-bottom: 10px;
+}
+
+.instructions ol {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.instructions li {
+  margin-bottom: 5px;
+  font-size: 13px;
+}
+
+.welcome {
+  text-align: center;
+}
+
+.welcomeImage {
+  width: 100%;
+  max-width: 420px;
+}
+
+.links a {
+  text-decoration: none;
+  color: #03787c;
+}
+
+.links a:hover {
+  text-decoration: underline;
+}
+
+.teams {
+  font-family: 'Segoe UI', sans-serif;
+}

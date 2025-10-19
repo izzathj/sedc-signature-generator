@@ -1,0 +1,18 @@
+{
+  "@microsoft/generator-sharepoint": {
+    "plusBeta": false,
+    "isCreatingSolution": true,
+    "nodeVersion": "22.20.0",
+    "sdksVersions": {},
+    "version": "1.21.1",
+    "libraryName": "sedc-signature-generator",
+    "libraryId": "30b839a0-0f5c-4656-9b8c-587942ca1094",
+    "environment": "spo",
+    "packageManager": "npm",
+    "solutionName": "sedc-signature-generator",
+    "solutionShortDescription": "sedc-signature-generator description",
+    "skipFeatureDeployment": true,
+    "isDomainIsolated": false,
+    "componentType": "webpart"
+  }
+}
