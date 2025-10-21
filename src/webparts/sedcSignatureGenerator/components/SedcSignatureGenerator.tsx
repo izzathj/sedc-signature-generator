@@ -2,9 +2,10 @@ import * as React from 'react';
 import { useState, useEffect } from 'react';
 import styles from './SedcSignatureGenerator.module.scss';
 import type { ISedcSignatureGeneratorProps } from './ISedcSignatureGeneratorProps';
-import { PrimaryButton, IconButton, Toggle, TextField, Spinner, MessageBar, MessageBarType } from '@fluentui/react';
+import { PrimaryButton, IconButton, /*Toggle, TextField,*/ Spinner, MessageBar, MessageBarType } from '@fluentui/react';
 import { GraphService, UserProfile } from '../../../services/GraphService';
 import { SignatureTemplates, SignatureData } from '../../../templates/SignatureTemplates';
+import { officeAddresses, officeTypeLabels, getFinalAddress } from '../../../data/OfficeAddresses';
 
 const SedcSignatureGenerator: React.FC<ISedcSignatureGeneratorProps> = (props) => {
   // User profile state
@@ -26,21 +27,25 @@ const SedcSignatureGenerator: React.FC<ISedcSignatureGeneratorProps> = (props) =
   // Validation errors
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   
+  //Office Addresses
+  const [officeType, setOfficeType] = useState<string>('');
+  const [specificLocation, setSpecificLocation] = useState<string>('');
+
   // Additional information
   const [unit, setUnit] = useState<string>('');
   const [personalMobile, setPersonalMobile] = useState<string>('');
   const [officeLocation, setOfficeLocation] = useState<string>('');
   
   // Social media toggle and fields
-  const [includeSocials, setIncludeSocials] = useState<boolean>(false);
-  const [personalLinkedIn, setPersonalLinkedIn] = useState<string>('');
-  const [personalFacebook, setPersonalFacebook] = useState<string>('');
-  const [personalInstagram, setPersonalInstagram] = useState<string>('');
-  const [personalTwitter, setPersonalTwitter] = useState<string>('');
-  const [personalTikTok, setPersonalTikTok] = useState<string>('');
+  // const [includeSocials, setIncludeSocials] = useState<boolean>(false);
+  // const [personalLinkedIn, setPersonalLinkedIn] = useState<string>('');
+  // const [personalFacebook, setPersonalFacebook] = useState<string>('');
+  // const [personalInstagram, setPersonalInstagram] = useState<string>('');
+  // const [personalTwitter, setPersonalTwitter] = useState<string>('');
+  // const [personalTikTok, setPersonalTikTok] = useState<string>('');
   
   // Social media validation
-  const [socialErrors, setSocialErrors] = useState<Record<string, string>>({});
+  const [socialErrors /*setSocialErrors*/] = useState<Record<string, string>>({});
   
   // Other state
   const [signatureHtml, setSignatureHtml] = useState<string>('');
@@ -75,47 +80,47 @@ const SedcSignatureGenerator: React.FC<ISedcSignatureGeneratorProps> = (props) =
   };
 
   // Validate URL format
-  const isValidUrl = (url: string, platform: string): boolean => {
-    if (!url) return true;
+  // const isValidUrl = (url: string, platform: string): boolean => {
+  //   if (!url) return true;
     
-    try {
-      const urlObj = new URL(url);
-      const hostname = urlObj.hostname.toLowerCase();
+  //   try {
+  //     const urlObj = new URL(url);
+  //     const hostname = urlObj.hostname.toLowerCase();
       
-      switch (platform) {
-        case 'linkedin':
-          return hostname.indexOf('linkedin.com') !== -1;
-        case 'facebook':
-          return hostname.indexOf('facebook.com') !== -1 || hostname.indexOf('fb.com') !== -1;
-        case 'instagram':
-          return hostname.indexOf('instagram.com') !== -1;
-        case 'twitter':
-          return hostname.indexOf('twitter.com') !== -1 || hostname.indexOf('x.com') !== -1;
-        case 'tiktok':
-          return hostname.indexOf('tiktok.com') !== -1;
-        default:
-          return true;
-      }
-    } catch {
-      return false;
-    }
-  };
+  //     switch (platform) {
+  //       case 'linkedin':
+  //         return hostname.indexOf('linkedin.com') !== -1;
+  //       case 'facebook':
+  //         return hostname.indexOf('facebook.com') !== -1 || hostname.indexOf('fb.com') !== -1;
+  //       case 'instagram':
+  //         return hostname.indexOf('instagram.com') !== -1;
+  //       case 'twitter':
+  //         return hostname.indexOf('twitter.com') !== -1 || hostname.indexOf('x.com') !== -1;
+  //       case 'tiktok':
+  //         return hostname.indexOf('tiktok.com') !== -1;
+  //       default:
+  //         return true;
+  //     }
+  //   } catch {
+  //     return false;
+  //   }
+  // };
 
   // Validate social media URLs
-  const validateSocialUrl = (platform: string, url: string): void => {
-    if (url && !isValidUrl(url, platform)) {
-      setSocialErrors(prev => ({
-        ...prev,
-        [platform]: `Please enter a valid ${platform} URL`
-      }));
-    } else {
-      setSocialErrors(prev => {
-        const newErrors = { ...prev };
-        delete newErrors[platform];
-        return newErrors;
-      });
-    }
-  };
+  // const validateSocialUrl = (platform: string, url: string): void => {
+  //   if (url && !isValidUrl(url, platform)) {
+  //     setSocialErrors(prev => ({
+  //       ...prev,
+  //       [platform]: `Please enter a valid ${platform} URL`
+  //     }));
+  //   } else {
+  //     setSocialErrors(prev => {
+  //       const newErrors = { ...prev };
+  //       delete newErrors[platform];
+  //       return newErrors;
+  //     });
+  //   }
+  // };
 
   // Generate signature
   const generateSignature = (): void => {
@@ -146,16 +151,22 @@ const SedcSignatureGenerator: React.FC<ISedcSignatureGeneratorProps> = (props) =
       includeOffice: !!officeLocation,
       unit: unit || undefined,
       personalMobile: personalMobile || undefined,
-      personalLinkedIn: includeSocials ? personalLinkedIn || undefined : undefined,
-      personalFacebook: includeSocials ? personalFacebook || undefined : undefined,
-      personalInstagram: includeSocials ? personalInstagram || undefined : undefined,
-      personalTwitter: includeSocials ? personalTwitter || undefined : undefined,
-      personalTikTok: includeSocials ? personalTikTok || undefined : undefined,
+      // personalLinkedIn: includeSocials ? personalLinkedIn || undefined : undefined,
+      // personalFacebook: includeSocials ? personalFacebook || undefined : undefined,
+      // personalInstagram: includeSocials ? personalInstagram || undefined : undefined,
+      // personalTwitter: includeSocials ? personalTwitter || undefined : undefined,
+      // personalTikTok: includeSocials ? personalTikTok || undefined : undefined,
     };
 
     const html = SignatureTemplates.generateTemplate4(data);
     setSignatureHtml(html);
   };
+
+  // Update officeLocation whenever officeType or specificLocation changes
+  useEffect(() => {
+    const address = getFinalAddress(officeType, specificLocation);
+    setOfficeLocation(address);
+  }, [officeType, specificLocation]);
 
   // Load profile on mount
   useEffect(() => {
@@ -168,8 +179,8 @@ const SedcSignatureGenerator: React.FC<ISedcSignatureGeneratorProps> = (props) =
       generateSignature();
     }
   }, [displayName, jobTitle, department, mail, businessPhone, unit, personalMobile, 
-      officeLocation, includeSocials, personalLinkedIn, personalFacebook, 
-      personalInstagram, personalTwitter, personalTikTok]);
+      officeLocation/*, includeSocials, personalLinkedIn, personalFacebook, 
+      personalInstagram, personalTwitter, personalTikTok*/]);
 
   // Start editing a field
   const startEdit = (fieldName: string, currentValue: string): void => {
@@ -455,10 +466,79 @@ const SedcSignatureGenerator: React.FC<ISedcSignatureGeneratorProps> = (props) =
           <h3>Additional Information</h3>
           <div className={styles.section}>
             {renderEditableField('Personal Mobile', 'personalMobile', personalMobile)}
-            {renderEditableField('Office Location', 'officeLocation', officeLocation)}
+            
+            {/* Office Location Selector */}
+            <div style={{ marginBottom: '15px' }}>
+              <div style={{ marginBottom: '10px' }}>
+                <label><strong>Office Type:</strong></label>
+                <select 
+                  value={officeType}
+                  onChange={(e) => {
+                    setOfficeType(e.target.value);
+                    setSpecificLocation(''); // Reset specific location when type changes
+                  }}
+                  style={{ width: '100%', padding: '8px', marginTop: '5px', border: '1px solid #ccc', borderRadius: '2px' }}
+                >
+                  <option value="">-- Select Office Type --</option>
+                  {Object.keys(officeAddresses).map((key) => (
+                    <option key={key} value={key}>
+                      {officeTypeLabels[key]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Show second dropdown for RO */}
+              {officeType === 'RO' && officeAddresses.RO.locations && (
+                <div style={{ marginBottom: '10px' }}>
+                  <label><strong>Select Regional Office:</strong></label>
+                  <select
+                    value={specificLocation}
+                    onChange={(e) => setSpecificLocation(e.target.value)}
+                    style={{ width: '100%', padding: '8px', marginTop: '5px', border: '1px solid #ccc', borderRadius: '2px' }}
+                  >
+                    <option value="">-- Select RO Location --</option>
+                    {Object.keys(officeAddresses.RO.locations).map((key) => (
+                      <option key={key} value={key}>
+                        {key.charAt(0) + key.slice(1).toLowerCase()}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Show second dropdown for PIBU */}
+              {officeType === 'PIBU' && officeAddresses.PIBU.locations && (
+                <div style={{ marginBottom: '10px' }}>
+                  <label><strong>Select PIBU Location:</strong></label>
+                  <select
+                    value={specificLocation}
+                    onChange={(e) => setSpecificLocation(e.target.value)}
+                    style={{ width: '100%', padding: '8px', marginTop: '5px', border: '1px solid #ccc', borderRadius: '2px' }}
+                  >
+                    <option value="">-- Select PIBU Location --</option>
+                    {Object.keys(officeAddresses.PIBU.locations).map((key) => (
+                      <option key={key} value={key}>
+                        {key.charAt(0) + key.slice(1).toLowerCase()}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Preview selected location */}
+              {officeLocation && (
+                <div style={{ marginTop: '10px', padding: '10px', backgroundColor: '#f0f0f0', borderRadius: '4px' }}>
+                  <strong>Selected Location:</strong>
+                  <div style={{ fontSize: '9pt', marginTop: '5px', color: '#333' }}>
+                    📍 {officeLocation}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
-            {/* Personal Social Media Section */}
+            {/* Personal Social Media Section
             <h3>Personal Social Media</h3>
             <div className={styles.section}>
               <Toggle
@@ -521,7 +601,7 @@ const SedcSignatureGenerator: React.FC<ISedcSignatureGeneratorProps> = (props) =
                   />
                 </div>
               )}
-            </div>
+            </div> */}
 
             <PrimaryButton
               text="Copy Signature"

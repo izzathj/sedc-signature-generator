@@ -22,35 +22,31 @@ export interface SignatureData {
 }
 
 export class SignatureTemplates {
-  private static calculateLogoSettings(data: SignatureData): { height: number; clipPercent: number } {
-    // Count contact lines
-    let lines = 0;
-    
-    // Always present (minimum 3)
-    lines++; // Name
-    lines++; // Department
-    lines++; // Email
-    
-    // Conditional fields
-    if (data.jobTitle) lines++;
-    if (data.unit) lines++;
-    if (data.businessPhones && data.businessPhones.length > 0) lines++;
-    if (data.personalMobile) lines++;
-    if (data.officeLocation && data.includeOffice) lines++;
-    
-    // Height and clip mapping based on lines
-    const settings: Record<number, { height: number; clipPercent: number }> = {
-      3: { height: 50, clipPercent: 25 },  // Minimal
-      4: { height: 57, clipPercent: 21 },  // +1 field
-      5: { height: 65, clipPercent: 17 },  // Standard
-      6: { height: 75, clipPercent: 12 },  // +Mobile or Location
-      7: { height: 90, clipPercent: 5 },   // Maximum (almost no crop)
-      8: { height: 100, clipPercent: 2 },  // Edge case (all + extras)
-    };
-    
-    // Return settings for the calculated lines (default to 3 if somehow less)
-    return settings[lines] || settings[3];
-  }
+private static calculateLogoSettings(data: SignatureData): { height: number; clipPercent: number } {
+  let lines = 0;
+  
+  // Count lines (same as before)
+  lines++; // Name
+  lines++; // Department  
+  lines++; // Email
+  if (data.jobTitle) lines++;
+  if (data.unit) lines++;
+  if (data.businessPhones && data.businessPhones.length > 0) lines++;
+  if (data.personalMobile) lines++;
+  if (data.officeLocation && data.includeOffice) lines++;
+  
+  // Adjusted heights for overflow cropping (slightly taller than clip-path)
+  const settings: Record<number, { height: number; clipPercent: number }> = {
+    3: { height: 55, clipPercent: 0 },   // Minimal (clipPercent not used anymore)
+    4: { height: 62, clipPercent: 0 },
+    5: { height: 70, clipPercent: 0 },   // Standard
+    6: { height: 80, clipPercent: 0 },
+    7: { height: 95, clipPercent: 0 },   // Maximum
+    8: { height: 105, clipPercent: 0 },
+  };
+  
+  return settings[lines] || settings[3];
+}
 
   public static generateTemplate1(data: SignatureData): string {
     const phone = data.businessPhones && data.businessPhones.length > 0 ? data.businessPhones[0] : '';
@@ -273,47 +269,42 @@ public static generateTemplate4(data: SignatureData): string {
   const mobile = data.personalMobile || '';
   const hasPersonalSocials = data.personalLinkedIn || data.personalFacebook || data.personalInstagram || data.personalTwitter || data.personalTikTok;
   const hasOfficeLocation = data.includeOffice && data.officeLocation;
-  
-  const { height: logoHeight, clipPercent } = this.calculateLogoSettings(data);
+
+  const { /*height: logoHeight, clipPercent */} = this.calculateLogoSettings(data);
 
   return `
     <table cellpadding="0" cellspacing="0" border="0" style="font-family: Arial, sans-serif; font-size: 10pt; color: #333333; border-collapse: collapse; width: 600px; table-layout: fixed;">
       <tr>
-        <td style="width: 160px; padding-right: 20px; border-right: 3px solid #00a651; vertical-align: ${hasPersonalSocials ? 'middle' : 'top'};">
+        <td style="width: 130px; padding-right: 20px; border-right: 3px solid #00a651; vertical-align: top;">
           ${!hasPersonalSocials ? `
-            <!-- Single cell layout when no personal socials -->
             <table cellpadding="0" cellspacing="0" border="0" style="width: 100%;">
               <tr>
                 <td style="text-align: center; vertical-align: middle;">
-                  <!-- DYNAMIC Cropped logo container -->
-                  <div style="width: 140px; height: ${logoHeight}px; overflow: hidden; margin: 0 auto; display: flex; align-items: center; justify-content: center;">
-                    <img src="https://sedc.com.my/wp-content/uploads/2025/08/SEDC-new-logo-2025-scaled.png" alt="SEDC Logo" style="width: 140px; height: auto; object-fit: cover; clip-path: inset(${clipPercent}% 0 ${clipPercent}% 0); display: block;" />
-                  </div>
+                  <!-- 130px logo, centered, no padding -->
+                  <img src="https://sedc.com.my/wp-content/uploads/2025/08/SEDC-new-logo-2025-scaled.png" alt="SEDC Logo" width="140" style="height: auto; display: block; margin: 0 auto;" />
                 </td>
               </tr>
               <tr>
-                <td style="padding-top: 10px;">
-                  <!-- Separator -->
-                  <div style="border-top: 1px solid #e0e0e0; margin-bottom: 10px;"></div>
+                <td style="padding-top: 5px;">
+                  <!-- Separator with minimal spacing -->
+                  <div style="border-top: 1px solid #e0e0e0; margin-bottom: 5px;"></div>
                   
                   <!-- Follow SEDC -->
-                  <div style="font-size: 9pt; color: #888888; line-height: 16px;">
-                    <span style="display: inline-block; vertical-align: middle; margin-right: 5px;">Follow SEDC:</span>
-                    <a href="https://www.facebook.com/sedcsarawak/" target="_blank" style="text-decoration: none; display: inline-block; vertical-align: middle; margin-right: 5px;">
-                      <img src="https://cdn-icons-png.flaticon.com/512/733/733547.png" alt="Facebook" width="16" height="16" style="display: block;" />
+                  <div style="font-size: 8pt; color: #888888; line-height: 14px; text-align: left;">
+                    <span style="display: inline-block; vertical-align: middle; margin-right: 3px;">Follow SEDC:</span>
+                    <a href="https://www.facebook.com/sedcsarawak/" target="_blank" style="text-decoration: none; display: inline-block; vertical-align: middle; margin-right: 3px;">
+                      <img src="https://cdn-icons-png.flaticon.com/512/733/733547.png" alt="Facebook" width="14" height="14" style="display: block;" />
                     </a>
                     <a href="https://www.instagram.com/sedcsarawak/" target="_blank" style="text-decoration: none; display: inline-block; vertical-align: middle;">
-                      <img src="https://cdn-icons-png.flaticon.com/512/2111/2111463.png" alt="Instagram" width="16" height="16" style="display: block;" />
+                      <img src="https://cdn-icons-png.flaticon.com/512/2111/2111463.png" alt="Instagram" width="14" height="14" style="display: block;" />
                     </a>
                   </div>
                 </td>
               </tr>
             </table>
           ` : `
-            <!-- Regular layout when personal socials exist -->
-            <div style="text-align: center;">
-              <img src="https://sedc.com.my/wp-content/uploads/2025/08/SEDC-new-logo-2025-scaled.png" alt="SEDC Logo" width="140" style="height: auto; display: block; margin: 0 auto;" />
-            </div>
+            <!-- With personal socials -->
+            <img src="https://sedc.com.my/wp-content/uploads/2025/08/SEDC-new-logo-2025-scaled.png" alt="SEDC Logo" width="130" style="height: auto; display: block; margin: 0 auto;" />
           `}
         </td>
         
