@@ -1,18 +1,57 @@
-import { UserProfile } from '../services/GraphService';
+// import { GraphService } from '../services/GraphService';
 
-export interface SignatureData extends UserProfile {
+export interface SignatureData {
+  displayName: string;
+  jobTitle: string;
+  department: string;
+  companyName: string;
+  mail: string;
+  businessPhones: string[];
+  mobilePhone: string;
+  officeLocation: string;
+  photo?: string;
   includePhoto: boolean;
-  //includeMobile: boolean;
   includeOffice: boolean;
-  //customText?: string;
   unit?: string;
   personalMobile?: string;
-  personalLinkedIn?: string;      // Personal LinkedIn
-  personalFacebook?: string;      // Personal Facebook
-  personalInstagram?: string;     // Personal Instagram
+  personalLinkedIn?: string;
+  personalFacebook?: string;
+  personalInstagram?: string;
+  personalTwitter?: string;      // ADD THIS
+  personalTikTok?: string;        // ADD THIS
 }
 
 export class SignatureTemplates {
+  private static calculateLogoSettings(data: SignatureData): { height: number; clipPercent: number } {
+    // Count contact lines
+    let lines = 0;
+    
+    // Always present (minimum 3)
+    lines++; // Name
+    lines++; // Department
+    lines++; // Email
+    
+    // Conditional fields
+    if (data.jobTitle) lines++;
+    if (data.unit) lines++;
+    if (data.businessPhones && data.businessPhones.length > 0) lines++;
+    if (data.personalMobile) lines++;
+    if (data.officeLocation && data.includeOffice) lines++;
+    
+    // Height and clip mapping based on lines
+    const settings: Record<number, { height: number; clipPercent: number }> = {
+      3: { height: 50, clipPercent: 25 },  // Minimal
+      4: { height: 57, clipPercent: 21 },  // +1 field
+      5: { height: 65, clipPercent: 17 },  // Standard
+      6: { height: 75, clipPercent: 12 },  // +Mobile or Location
+      7: { height: 90, clipPercent: 5 },   // Maximum (almost no crop)
+      8: { height: 100, clipPercent: 2 },  // Edge case (all + extras)
+    };
+    
+    // Return settings for the calculated lines (default to 3 if somehow less)
+    return settings[lines] || settings[3];
+  }
+
   public static generateTemplate1(data: SignatureData): string {
     const phone = data.businessPhones && data.businessPhones.length > 0 ? data.businessPhones[0] : '';
     const mobile = data.personalMobile || '';
@@ -232,22 +271,23 @@ export class SignatureTemplates {
 public static generateTemplate4(data: SignatureData): string {
   const phone = data.businessPhones && data.businessPhones.length > 0 ? data.businessPhones[0] : '';
   const mobile = data.personalMobile || '';
-  const hasPersonalSocials = data.personalLinkedIn || data.personalFacebook || data.personalInstagram;
+  const hasPersonalSocials = data.personalLinkedIn || data.personalFacebook || data.personalInstagram || data.personalTwitter || data.personalTikTok;
   const hasOfficeLocation = data.includeOffice && data.officeLocation;
   
+  const { height: logoHeight, clipPercent } = this.calculateLogoSettings(data);
+
   return `
     <table cellpadding="0" cellspacing="0" border="0" style="font-family: Arial, sans-serif; font-size: 10pt; color: #333333; border-collapse: collapse; width: 600px; table-layout: fixed;">
-      <!-- Main Content Row -->
       <tr>
-        <td style="width: 160px; padding-right: 20px; border-right: 3px solid #00a651; vertical-align: top;">
+        <td style="width: 160px; padding-right: 20px; border-right: 3px solid #00a651; vertical-align: ${hasPersonalSocials ? 'middle' : 'top'};">
           ${!hasPersonalSocials ? `
             <!-- Single cell layout when no personal socials -->
             <table cellpadding="0" cellspacing="0" border="0" style="width: 100%;">
               <tr>
-                <td style="overflow: hidden; height: 100px; position: relative;">
-                  <!-- Logo container with center crop -->
-                  <div style="width: 140px; height: 100px; position: relative; overflow: hidden;">
-                    <img src="https://sedc.com.my/wp-content/uploads/2025/08/SEDC-new-logo-2025-scaled.png" alt="SEDC Logo" style="width: 140px; height: auto; position: absolute; top: 50%; left: 0; transform: translateY(-50%);" />
+                <td style="text-align: center; vertical-align: middle;">
+                  <!-- DYNAMIC Cropped logo container -->
+                  <div style="width: 140px; height: ${logoHeight}px; overflow: hidden; margin: 0 auto; display: flex; align-items: center; justify-content: center;">
+                    <img src="https://sedc.com.my/wp-content/uploads/2025/08/SEDC-new-logo-2025-scaled.png" alt="SEDC Logo" style="width: 140px; height: auto; object-fit: cover; clip-path: inset(${clipPercent}% 0 ${clipPercent}% 0); display: block;" />
                   </div>
                 </td>
               </tr>
@@ -271,13 +311,17 @@ public static generateTemplate4(data: SignatureData): string {
             </table>
           ` : `
             <!-- Regular layout when personal socials exist -->
-            <img src="https://sedc.com.my/wp-content/uploads/2025/08/SEDC-new-logo-2025-scaled.png" alt="SEDC Logo" width="140" style="display: block; height: auto; margin-bottom: 10px;" />
+            <div style="text-align: center;">
+              <img src="https://sedc.com.my/wp-content/uploads/2025/08/SEDC-new-logo-2025-scaled.png" alt="SEDC Logo" width="140" style="height: auto; display: block; margin: 0 auto;" />
+            </div>
           `}
         </td>
         
+        <!-- Right column continues... -->
+        
         <td style="padding-left: 20px; vertical-align: top; min-width: 400px;">
           <!-- Name -->
-          <div style="font-size: 12pt; font-weight: bold; color: #00a651; margin-bottom: 3px;">
+          <div style="font-size: 11pt; font-weight: bold; color: #00a651; margin-bottom: 3px;">
             ${data.displayName}
           </div>
           
@@ -287,12 +331,12 @@ public static generateTemplate4(data: SignatureData): string {
           </div>
           
           <!-- Unit and Department -->
-          <div style="font-size: 9pt; color: #999999; font-style: italic; margin-bottom: 10px;">
+          <div style="font-size: 10pt; color: #999999; font-style: italic; margin-bottom: 10px;">
             ${data.unit ? data.unit + ', ' : ''}${data.department || 'Group Digital and Technology'}
           </div>
           
           <!-- Contact Info (ALL lines) -->
-          <div style="font-size: 10pt; line-height: 16px;">
+          <div style="font-size: 9pt; line-height: 16px;">
             <div style="margin-bottom: 3px;">
               📧 <a href="mailto:${data.mail}" style="color: #00a651; text-decoration: none;">${data.mail}</a>
             </div>
@@ -317,7 +361,7 @@ public static generateTemplate4(data: SignatureData): string {
             <div style="border-top: 1px solid #e0e0e0; margin-bottom: 10px;"></div>
             
             <!-- Follow SEDC -->
-            <div style="font-size: 9pt; color: #888888; line-height: 20px;">
+            <div style="font-size: 8.5pt; color: #888888; line-height: 20px;">
               <span style="display: inline-block; vertical-align: middle; margin-right: 5px;">Follow SEDC:</span>
               <a href="https://www.facebook.com/sedcsarawak/" target="_blank" style="text-decoration: none; display: inline-block; vertical-align: middle; margin-right: 5px;">
                 <img src="https://cdn-icons-png.flaticon.com/512/733/733547.png" alt="Facebook" width="16" height="16" style="display: block;" />
@@ -333,23 +377,33 @@ public static generateTemplate4(data: SignatureData): string {
             <div style="border-top: 1px solid #e0e0e0; margin-bottom: 10px;"></div>
             
             <!-- Connect with me -->
-            <div style="font-size: 9pt; color: #888888; line-height: 20px;">
-              <span style="display: inline-block; vertical-align: middle; margin-right: 5px;">Connect with me:</span>
-              ${data.personalLinkedIn ? `
-                <a href="${data.personalLinkedIn}" target="_blank" style="text-decoration: none; display: inline-block; vertical-align: middle; margin-right: 5px;">
-                  <img src="https://cdn-icons-png.flaticon.com/512/174/174857.png" alt="LinkedIn" width="16" height="16" style="display: block;" />
-                </a>
-              ` : ''}
-              ${data.personalFacebook ? `
-                <a href="${data.personalFacebook}" target="_blank" style="text-decoration: none; display: inline-block; vertical-align: middle; margin-right: 5px;">
-                  <img src="https://cdn-icons-png.flaticon.com/512/733/733547.png" alt="Facebook" width="16" height="16" style="display: block;" />
-                </a>
-              ` : ''}
-              ${data.personalInstagram ? `
-                <a href="${data.personalInstagram}" target="_blank" style="text-decoration: none; display: inline-block; vertical-align: middle;">
-                  <img src="https://cdn-icons-png.flaticon.com/512/2111/2111463.png" alt="Instagram" width="16" height="16" style="display: block;" />
-                </a>
-              ` : ''}
+            <div style="font-size: 8.5pt; color: #888888; line-height: 20px;">
+                <span style="display: inline-block; vertical-align: middle; margin-right: 5px;">Connect with me:</span>
+                ${data.personalLinkedIn ? `
+                  <a href="${data.personalLinkedIn}" target="_blank" style="text-decoration: none; display: inline-block; vertical-align: middle; margin-right: 5px;">
+                    <img src="https://cdn-icons-png.flaticon.com/512/174/174857.png" alt="LinkedIn" width="16" height="16" style="display: block;" />
+                  </a>
+                ` : ''}
+                ${data.personalFacebook ? `
+                  <a href="${data.personalFacebook}" target="_blank" style="text-decoration: none; display: inline-block; vertical-align: middle; margin-right: 5px;">
+                    <img src="https://cdn-icons-png.flaticon.com/512/733/733547.png" alt="Facebook" width="16" height="16" style="display: block;" />
+                  </a>
+                ` : ''}
+                ${data.personalInstagram ? `
+                  <a href="${data.personalInstagram}" target="_blank" style="text-decoration: none; display: inline-block; vertical-align: middle; margin-right: 5px;">
+                    <img src="https://cdn-icons-png.flaticon.com/512/2111/2111463.png" alt="Instagram" width="16" height="16" style="display: block;" />
+                  </a>
+                ` : ''}
+                ${data.personalTwitter ? `
+                  <a href="${data.personalTwitter}" target="_blank" style="text-decoration: none; display: inline-block; vertical-align: middle; margin-right: 5px;">
+                    <img src="https://cdn-icons-png.flaticon.com/512/5968/5968830.png" alt="Twitter" width="16" height="16" style="display: block;" />
+                  </a>
+                ` : ''}
+                ${data.personalTikTok ? `
+                  <a href="${data.personalTikTok}" target="_blank" style="text-decoration: none; display: inline-block; vertical-align: middle;">
+                    <img src="https://cdn-icons-png.flaticon.com/512/5968/5968812.png" alt="TikTok" width="16" height="16" style="display: block;" />
+                  </a>
+                ` : ''}
             </div>
           </td>
         </tr>

@@ -33,7 +33,7 @@ export class GraphService {
           .api('/me/photo/$value')
           .get();
         photoUrl = URL.createObjectURL(photoBlob);
-      } catch (photoError) {
+      } catch {
         console.log('No photo available or error fetching photo');
       }
 

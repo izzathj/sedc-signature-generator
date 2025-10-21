@@ -1,45 +1,71 @@
+import LogoCropTest from './LogoCropTest';
 import * as React from 'react';
 import { useState, useEffect } from 'react';
 import styles from './SedcSignatureGenerator.module.scss';
 import type { ISedcSignatureGeneratorProps } from './ISedcSignatureGeneratorProps';
-import { PrimaryButton, DefaultButton, Toggle, TextField, Spinner, MessageBar, MessageBarType } from '@fluentui/react';
+import { PrimaryButton, IconButton, Toggle, TextField, Spinner, MessageBar, MessageBarType } from '@fluentui/react';
 import { GraphService, UserProfile } from '../../../services/GraphService';
 import { SignatureTemplates, SignatureData } from '../../../templates/SignatureTemplates';
 
 const SedcSignatureGenerator: React.FC<ISedcSignatureGeneratorProps> = (props) => {
+  // User profile state
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string>('');
-  const [selectedTemplate, setSelectedTemplate] = useState<number>(1);
-  const [includePhoto, setIncludePhoto] = useState<boolean>(true);
-  //const [includeMobile, setIncludeMobile] = useState<boolean>(false);
-  const [includeOffice, setIncludeOffice] = useState<boolean>(true);
-  //const [customText, setCustomText] = useState<string>('');
-  const [signatureHtml, setSignatureHtml] = useState<string>('');
-  const [copySuccess, setCopySuccess] = useState<boolean>(false);
-  const [personalMobile, setPersonalMobile] = useState<string>('');  
+  
+  // Editable user info fields
+  const [displayName, setDisplayName] = useState<string>('');
+  const [jobTitle, setJobTitle] = useState<string>('');
+  const [department, setDepartment] = useState<string>('');
+  const [mail, setMail] = useState<string>('');
+  const [businessPhone, setBusinessPhone] = useState<string>('');
+  
+  // Edit mode state for each field
+  const [editingField, setEditingField] = useState<string | null>(null);
+  const [tempValue, setTempValue] = useState<string>('');
+  
+  // Validation errors
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  
+  // Additional information
   const [unit, setUnit] = useState<string>('');
+  const [personalMobile, setPersonalMobile] = useState<string>('');
+  const [officeLocation, setOfficeLocation] = useState<string>('');
+  
+  // Social media toggle and fields
+  const [includeSocials, setIncludeSocials] = useState<boolean>(false);
   const [personalLinkedIn, setPersonalLinkedIn] = useState<string>('');
   const [personalFacebook, setPersonalFacebook] = useState<string>('');
   const [personalInstagram, setPersonalInstagram] = useState<string>('');
+  const [personalTwitter, setPersonalTwitter] = useState<string>('');
+  const [personalTikTok, setPersonalTikTok] = useState<string>('');
+  
+  // Social media validation
+  const [socialErrors, setSocialErrors] = useState<Record<string, string>>({});
+  
+  // Other state
+  const [signatureHtml, setSignatureHtml] = useState<string>('');
+  const [copySuccess, setCopySuccess] = useState<boolean>(false);
 
-  useEffect(() => {
-    void loadUserProfile();
-  }, []);
-
-useEffect(() => {
-  if (userProfile) {
-    generateSignature();
-  }
-}, [userProfile, selectedTemplate, includePhoto, /*includeMobile,*/ includeOffice, unit, personalMobile, personalLinkedIn, personalFacebook, personalInstagram]);
-
+  // Load user profile
   const loadUserProfile = async (): Promise<void> => {
     try {
       setLoading(true);
       const graphClient = await props.context.msGraphClientFactory.getClient('3');
       const graphService = new GraphService(graphClient);
       const profile = await graphService.getUserProfile();
+      
       setUserProfile(profile);
+      
+      // Set editable fields with AAD data
+      setDisplayName(profile.displayName || '');
+      setJobTitle(profile.jobTitle || '');
+      setDepartment(profile.department || '');
+      setMail(profile.mail || '');
+      // Business phone: AAD first, then default to 082551555
+      setBusinessPhone(profile.businessPhones?.[0] || '082551555');
+      setOfficeLocation(profile.officeLocation || '');
+      
       setError('');
     } catch (err) {
       setError('Failed to load user profile. Please ensure API permissions are granted.');
@@ -49,49 +75,233 @@ useEffect(() => {
     }
   };
 
+  // Validate URL format
+  const isValidUrl = (url: string, platform: string): boolean => {
+    if (!url) return true;
+    
+    try {
+      const urlObj = new URL(url);
+      const hostname = urlObj.hostname.toLowerCase();
+      
+      switch (platform) {
+        case 'linkedin':
+          return hostname.indexOf('linkedin.com') !== -1;
+        case 'facebook':
+          return hostname.indexOf('facebook.com') !== -1 || hostname.indexOf('fb.com') !== -1;
+        case 'instagram':
+          return hostname.indexOf('instagram.com') !== -1;
+        case 'twitter':
+          return hostname.indexOf('twitter.com') !== -1 || hostname.indexOf('x.com') !== -1;
+        case 'tiktok':
+          return hostname.indexOf('tiktok.com') !== -1;
+        default:
+          return true;
+      }
+    } catch {
+      return false;
+    }
+  };
+
+  // Validate social media URLs
+  const validateSocialUrl = (platform: string, url: string): void => {
+    if (url && !isValidUrl(url, platform)) {
+      setSocialErrors(prev => ({
+        ...prev,
+        [platform]: `Please enter a valid ${platform} URL`
+      }));
+    } else {
+      setSocialErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[platform];
+        return newErrors;
+      });
+    }
+  };
+
+  // Generate signature
   const generateSignature = (): void => {
-    if (!userProfile) return;
-
-    const data: SignatureData = {
-      ...userProfile,
-      includePhoto,
-      //includeMobile,
-      includeOffice,
-      //customText: customText || undefined,
-      unit: unit || undefined,
-      personalMobile: personalMobile || undefined,
-      personalLinkedIn: personalLinkedIn || undefined,
-      personalFacebook: personalFacebook || undefined,
-      personalInstagram: personalInstagram || undefined
-    };
-
-    let html = '';
-    switch (selectedTemplate) {
-      case 1:
-        html = SignatureTemplates.generateTemplate1(data);
-        break;
-      case 2:
-        html = SignatureTemplates.generateTemplate2(data);
-        break;
-      case 3:
-        html = SignatureTemplates.generateTemplate3(data);
-        break;
-    case 4:  // Add this
-        html = SignatureTemplates.generateTemplate4(data);
-        break;
+    // Validate required fields
+    const errors: Record<string, string> = {};
+    if (!displayName.trim()) errors.displayName = 'Name is required';
+    if (!department.trim()) errors.department = 'Department is required';
+    if (!mail.trim()) errors.mail = 'Email is required';
+    
+    setFieldErrors(errors);
+    
+    // Don't generate if there are errors
+    if (Object.keys(errors).length > 0) {
+      return;
     }
 
+    const data: SignatureData = {
+      displayName,
+      jobTitle,
+      department,
+      companyName: userProfile?.companyName || 'SEDC',
+      mail,
+      businessPhones: businessPhone ? [businessPhone] : [],
+      mobilePhone: personalMobile || '',
+      officeLocation: officeLocation || '',
+      photo: userProfile?.photo,
+      includePhoto: true,
+      includeOffice: !!officeLocation,
+      unit: unit || undefined,
+      personalMobile: personalMobile || undefined,
+      personalLinkedIn: includeSocials ? personalLinkedIn || undefined : undefined,
+      personalFacebook: includeSocials ? personalFacebook || undefined : undefined,
+      personalInstagram: includeSocials ? personalInstagram || undefined : undefined,
+      personalTwitter: includeSocials ? personalTwitter || undefined : undefined,
+      personalTikTok: includeSocials ? personalTikTok || undefined : undefined,
+    };
+
+    const html = SignatureTemplates.generateTemplate4(data);
     setSignatureHtml(html);
   };
 
+  // Load profile on mount
+  useEffect(() => {
+    loadUserProfile().catch(console.error);
+  }, []);
+
+  // Regenerate signature when any field changes
+  useEffect(() => {
+    if (userProfile) {
+      generateSignature();
+    }
+  }, [displayName, jobTitle, department, mail, businessPhone, unit, personalMobile, 
+      officeLocation, includeSocials, personalLinkedIn, personalFacebook, 
+      personalInstagram, personalTwitter, personalTikTok]);
+
+  // Start editing a field
+  const startEdit = (fieldName: string, currentValue: string): void => {
+    setEditingField(fieldName);
+    setTempValue(currentValue);
+    // Clear error for this field when editing
+    setFieldErrors(prev => {
+      const newErrors = { ...prev };
+      delete newErrors[fieldName];
+      return newErrors;
+    });
+  };
+
+  // Check if field can be retrieved from AAD
+  const canRetrieveFromAAD = (fieldName: string): boolean => {
+    const aadFields = ['displayName', 'jobTitle', 'department', 'mail', 'businessPhone', 'officeLocation'];
+    return aadFields.indexOf(fieldName) !== -1;
+  };
+
+  // Auto-retrieve from AAD
+  const autoRetrieveFromAAD = (fieldName: string): void => {
+    if (!userProfile) return;
+
+    switch (fieldName) {
+      case 'displayName':
+        setTempValue(userProfile.displayName || '');
+        break;
+      case 'jobTitle':
+        setTempValue(userProfile.jobTitle || '');
+        break;
+      case 'department':
+        setTempValue(userProfile.department || '');
+        break;
+      case 'mail':
+        setTempValue(userProfile.mail || '');
+        break;
+      case 'businessPhone':
+        setTempValue(userProfile.businessPhones?.[0] || '082551555');
+        break;
+      case 'officeLocation':
+        setTempValue(userProfile.officeLocation || '');
+        break;
+    }
+  };
+
+  // Check if field is required
+  const isRequiredField = (fieldName: string): boolean => {
+    return ['displayName', 'department', 'mail'].indexOf(fieldName) !== -1;
+  };
+
+  // Delete field value
+  const deleteField = (fieldName: string): void => {
+    if (isRequiredField(fieldName)) {
+      alert(`${fieldName === 'displayName' ? 'Name' : fieldName === 'mail' ? 'Email' : 'Department'} is a required field and cannot be deleted.`);
+      return;
+    }
+
+    // Clear the temp value in edit mode
+    setTempValue('');
+    
+    // Also clear the actual field value
+    switch (fieldName) {
+      case 'jobTitle':
+        setJobTitle('');
+        break;
+      case 'businessPhone':
+        setBusinessPhone('082551555'); // Default value
+        break;
+      case 'unit':
+        setUnit('');
+        break;
+      case 'personalMobile':
+        setPersonalMobile('');
+        break;
+      case 'officeLocation':
+        setOfficeLocation('');
+        break;
+    }
+  };
+
+  // Save edited field
+  const saveEdit = (fieldName: string): void => {
+    // Validate required fields
+    if (isRequiredField(fieldName) && !tempValue.trim()) {
+      alert(`${fieldName === 'displayName' ? 'Name' : fieldName === 'mail' ? 'Email' : 'Department'} is required and cannot be empty.`);
+      return;
+    }
+
+    switch (fieldName) {
+      case 'displayName':
+        setDisplayName(tempValue);
+        break;
+      case 'jobTitle':
+        setJobTitle(tempValue);
+        break;
+      case 'department':
+        setDepartment(tempValue);
+        break;
+      case 'mail':
+        setMail(tempValue);
+        break;
+      case 'businessPhone':
+        setBusinessPhone(tempValue);
+        break;
+      case 'unit':
+        setUnit(tempValue);
+        break;
+      case 'personalMobile':
+        setPersonalMobile(tempValue);
+        break;
+      case 'officeLocation':
+        setOfficeLocation(tempValue);
+        break;
+    }
+    setEditingField(null);
+    setTempValue('');
+  };
+
+  // Cancel editing
+  const cancelEdit = (): void => {
+    setEditingField(null);
+    setTempValue('');
+  };
+
+  // Copy signature to clipboard
   const copySignature = async (): Promise<void> => {
     try {
-      // Create a temporary div to hold the HTML
       const tempDiv = document.createElement('div');
       tempDiv.innerHTML = signatureHtml;
       document.body.appendChild(tempDiv);
 
-      // Select the content
       const range = document.createRange();
       range.selectNode(tempDiv);
       const selection = window.getSelection();
@@ -100,10 +310,8 @@ useEffect(() => {
         selection.addRange(range);
       }
 
-      // Copy to clipboard
       document.execCommand('copy');
 
-      // Clean up
       document.body.removeChild(tempDiv);
       if (selection) {
         selection.removeAllRanges();
@@ -116,6 +324,88 @@ useEffect(() => {
       alert('Failed to copy signature. Please try selecting and copying manually.');
     }
   };
+
+  // Render editable field
+  const renderEditableField = (label: string, fieldName: string, value: string, isRequired: boolean = false): JSX.Element => {
+  const isEditing = editingField === fieldName;
+  const hasError = fieldErrors[fieldName];
+  const canRetrieve = canRetrieveFromAAD(fieldName);
+  const canDelete = !isRequired;
+
+  return (
+    <div style={{ marginBottom: '15px' }}>
+      <div style={{ display: 'flex', alignItems: 'center' }}>
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center' }}>
+          <strong style={{ minWidth: '120px' }}>{label}{isRequired && <span style={{ color: 'red' }}>*</span>}:</strong>
+          {isEditing ? (
+            <input
+              type="text"
+              value={tempValue}
+              onChange={(e) => setTempValue(e.target.value)}
+              style={{ 
+                flex: 1,
+                padding: '5px',
+                border: '1px solid #ccc',
+                borderRadius: '2px',
+                marginLeft: '10px'
+              }}
+              autoFocus
+            />
+          ) : (
+            <span style={{ color: hasError ? 'red' : 'inherit', marginLeft: '10px' }}>
+              {value || '(Not set)'}
+            </span>
+          )}
+        </div>
+        <div style={{ marginLeft: '10px', display: 'flex', gap: '2px', alignItems: 'center' }}>
+          {isEditing ? (
+            <>
+              {canRetrieve && (
+                <IconButton
+                  iconProps={{ iconName: 'Refresh' }}
+                  title="Refresh"
+                  onClick={() => autoRetrieveFromAAD(fieldName)}
+                  styles={{ root: { color: '#0078d4' } }}
+                />
+              )}
+              {canDelete && (
+                <IconButton
+                  iconProps={{ iconName: 'Delete' }}
+                  title="Delete"
+                  onClick={() => deleteField(fieldName)}
+                  styles={{ root: { color: '#d13438' } }}
+                />
+              )}
+              <IconButton
+                iconProps={{ iconName: 'Accept' }}
+                title="Save"
+                onClick={() => saveEdit(fieldName)}
+                styles={{ root: { color: '#107c10' } }}
+              />
+              <IconButton
+                iconProps={{ iconName: 'Cancel' }}
+                title="Cancel"
+                onClick={cancelEdit}
+                styles={{ root: { color: '#d13438' } }}
+              />
+            </>
+          ) : (
+            <IconButton
+              iconProps={{ iconName: 'Edit' }}
+              title="Edit"
+              onClick={() => startEdit(fieldName, value)}
+            />
+          )}
+        </div>
+      </div>
+      {hasError && (
+        <div style={{ color: 'red', fontSize: '12px', marginTop: '5px', marginLeft: '130px' }}>
+          {hasError}
+        </div>
+      )}
+    </div>
+  );
+};
 
   if (loading) {
     return (
@@ -150,108 +440,96 @@ useEffect(() => {
         <div className={styles.grid}>
           {/* Left Panel - Controls */}
           <div className={styles.controls}>
-            <h3>User Information</h3>
-            <div className={styles.userInfo}>
-              <p><strong>Name:</strong> {userProfile?.displayName}</p>
-              <p><strong>Title:</strong> {userProfile?.jobTitle}</p>
-              <p><strong>Department:</strong> {userProfile?.department}</p>
-              <p><strong>Email:</strong> {userProfile?.mail}</p>
-              {userProfile?.businessPhones && userProfile.businessPhones.length > 0 && (
-                <p><strong>Phone:</strong> {userProfile.businessPhones[0]}</p>
+            
+          {/* User Information Section */}
+          <h3>User Information</h3>
+          <div className={styles.section}>
+            {renderEditableField('Name', 'displayName', displayName, true)}
+            {renderEditableField('Title', 'jobTitle', jobTitle)}
+            {renderEditableField('Unit', 'unit', unit)}
+            {renderEditableField('Department', 'department', department, true)}
+            {renderEditableField('Email', 'mail', mail, true)}
+            {renderEditableField('Business Phone', 'businessPhone', businessPhone)}
+          </div>
+
+          {/* Additional Information Section */}
+          <h3>Additional Information</h3>
+          <div className={styles.section}>
+            {renderEditableField('Personal Mobile', 'personalMobile', personalMobile)}
+            {renderEditableField('Office Location', 'officeLocation', officeLocation)}
+          </div>
+
+            {/* Personal Social Media Section */}
+            <h3>Personal Social Media</h3>
+            <div className={styles.section}>
+              <Toggle
+                label="Include Personal Socials"
+                checked={includeSocials}
+                onChange={(_, checked) => setIncludeSocials(checked || false)}
+              />
+              
+              {includeSocials && (
+                <div style={{ marginTop: '15px' }}>
+                  <TextField
+                    label="LinkedIn"
+                    placeholder="https://linkedin.com/in/yourname"
+                    value={personalLinkedIn}
+                    onChange={(_, value) => {
+                      setPersonalLinkedIn(value || '');
+                      validateSocialUrl('linkedin', value || '');
+                    }}
+                    errorMessage={socialErrors.linkedin}
+                  />
+                  <TextField
+                    label="Facebook"
+                    placeholder="https://facebook.com/yourname"
+                    value={personalFacebook}
+                    onChange={(_, value) => {
+                      setPersonalFacebook(value || '');
+                      validateSocialUrl('facebook', value || '');
+                    }}
+                    errorMessage={socialErrors.facebook}
+                  />
+                  <TextField
+                    label="Instagram"
+                    placeholder="https://instagram.com/yourname"
+                    value={personalInstagram}
+                    onChange={(_, value) => {
+                      setPersonalInstagram(value || '');
+                      validateSocialUrl('instagram', value || '');
+                    }}
+                    errorMessage={socialErrors.instagram}
+                  />
+                  <TextField
+                    label="Twitter (X)"
+                    placeholder="https://x.com/yourname"
+                    value={personalTwitter}
+                    onChange={(_, value) => {
+                      setPersonalTwitter(value || '');
+                      validateSocialUrl('twitter', value || '');
+                    }}
+                    errorMessage={socialErrors.twitter}
+                  />
+                  <TextField
+                    label="TikTok"
+                    placeholder="https://tiktok.com/@yourname"
+                    value={personalTikTok}
+                    onChange={(_, value) => {
+                      setPersonalTikTok(value || '');
+                      validateSocialUrl('tiktok', value || '');
+                    }}
+                    errorMessage={socialErrors.tiktok}
+                  />
+                </div>
               )}
             </div>
-
-            <h3>Additional Information</h3>
-            <TextField
-              label="Unit"
-              placeholder="e.g., Corporate Planning Unit"
-              value={unit}
-              onChange={(_, value) => setUnit(value || '')}
-              description="Enter your unit name (not in Active Directory)"
-            />
-            <TextField
-              label="Personal Mobile Phone"
-              placeholder="e.g., +60 12-345 6789"
-              value={personalMobile}
-              onChange={(_, value) => setPersonalMobile(value || '')}
-              description="Optional: Add your personal mobile number"
-            />
-
-            <h3>Personal Social Media (Optional)</h3>
-            <TextField
-              label="LinkedIn"
-              placeholder="https://linkedin.com/in/yourname"
-              value={personalLinkedIn}
-              onChange={(_, value) => setPersonalLinkedIn(value || '')}
-            />
-            <TextField
-              label="Facebook"
-              placeholder="https://facebook.com/yourname"
-              value={personalFacebook}
-              onChange={(_, value) => setPersonalFacebook(value || '')}
-            />
-            <TextField
-              label="Instagram"
-              placeholder="https://instagram.com/yourname"
-              value={personalInstagram}
-              onChange={(_, value) => setPersonalInstagram(value || '')}
-            />
-
-            <h3>Template Selection</h3>
-            <div className={styles.templateButtons}>
-              <DefaultButton
-                text="Professional"
-                onClick={() => setSelectedTemplate(1)}
-                primary={selectedTemplate === 1}
-              />
-              <DefaultButton
-                text="Modern"
-                onClick={() => setSelectedTemplate(2)}
-                primary={selectedTemplate === 2}
-              />
-              <DefaultButton
-                text="Minimal"
-                onClick={() => setSelectedTemplate(3)}
-                primary={selectedTemplate === 3}
-              /> 
-              <DefaultButton
-                text="SEDC Clean"
-                onClick={() => setSelectedTemplate(4)}
-                primary={selectedTemplate === 4}
-              />
-            </div>
-
-            <h3>Options</h3>
-            <Toggle
-              label="Include Profile Photo"
-              checked={includePhoto}
-              onChange={(_, checked) => setIncludePhoto(checked || false)}
-            />
-            {/* <Toggle
-              label="Include Mobile Phone"
-              checked={includeMobile}
-              onChange={(_, checked) => setIncludeMobile(checked || false)}
-            /> */}
-            <Toggle
-              label="Include Office Location"
-              checked={includeOffice}
-              onChange={(_, checked) => setIncludeOffice(checked || false)}
-            />
-
-            {/* <TextField
-              label="Custom Text (Optional)"
-              placeholder="e.g., Confidentiality notice, disclaimer..."
-              multiline
-              rows={3}
-              value={customText}
-              onChange={(_, value) => setCustomText(value || '')}
-            /> */}
 
             <PrimaryButton
               text="Copy Signature"
               onClick={copySignature}
               iconProps={{ iconName: 'Copy' }}
               style={{ marginTop: '20px' }}
+              disabled={Object.keys(fieldErrors).length > 0 || Object.keys(socialErrors).length > 0}
             />
           </div>
 
@@ -266,17 +544,23 @@ useEffect(() => {
             <div className={styles.instructions}>
               <h4>How to Install in Outlook:</h4>
               <ol>
-                <li>Click "Copy Signature" button above</li>
+                <li>Click &quot;Copy Signature&quot; button above</li>
                 <li>Open Outlook → File → Options → Mail → Signatures</li>
-                <li>Click "New" to create a new signature</li>
+                <li>Click &quot;New&quot; to create a new signature</li>
                 <li>Paste (Ctrl+V) into the signature editor</li>
-                <li>Click "OK" to save</li>
+                <li>Click &quot;OK&quot; to save</li>
               </ol>
             </div>
           </div>
         </div>
       </div>
+          <div style={{ marginTop: '50px', borderTop: '3px solid red', paddingTop: '20px' }}>
+      <LogoCropTest />
     </div>
+    </div>
+
+
+
   );
 };
 
