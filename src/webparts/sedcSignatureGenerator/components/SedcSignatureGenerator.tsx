@@ -1,4 +1,3 @@
-import LogoCropTest from './LogoCropTest';
 import * as React from 'react';
 import { useState, useEffect } from 'react';
 import styles from './SedcSignatureGenerator.module.scss';
@@ -554,12 +553,7 @@ const SedcSignatureGenerator: React.FC<ISedcSignatureGeneratorProps> = (props) =
           </div>
         </div>
       </div>
-          <div style={{ marginTop: '50px', borderTop: '3px solid red', paddingTop: '20px' }}>
-      <LogoCropTest />
     </div>
-    </div>
-
-
 
   );
 };
