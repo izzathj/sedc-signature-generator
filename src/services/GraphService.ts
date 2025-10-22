@@ -53,4 +53,11 @@ export class GraphService {
       throw error;
     }
   }
+
+  // Add this static method
+    public static async getUserProfileFromContext(context: any): Promise<UserProfile> {
+      const graphClient = await context.msGraphClientFactory.getClient('3');
+      const service = new GraphService(graphClient);
+      return service.getUserProfile();
+    }
 }

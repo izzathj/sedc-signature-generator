@@ -7,6 +7,8 @@ import { GraphService } from '../../../services/GraphService';
 import { SignatureTemplates } from '../../../templates/SignatureTemplates';
 import { officeAddresses, officeTypeLabels, getFinalAddress } from '../../../data/OfficeAddresses';
 
+//import { WebPartContext } from '@microsoft/sp-webpart-base';
+
 // Field placeholders
 const fieldPlaceholders: Record<string, string> = {
   displayName: 'e.g., John Doe',
@@ -20,6 +22,7 @@ const fieldPlaceholders: Record<string, string> = {
   sharedEmail: 'e.g., hr@sedc.my, support@sedc.my',
   sharedPhone: 'e.g., +6082-416918'
 };
+
 
 export default function SedcSignatureGenerator(props: ISedcSignatureGeneratorProps): JSX.Element {
   const { context } = props;
@@ -63,6 +66,27 @@ export default function SedcSignatureGenerator(props: ISedcSignatureGeneratorPro
   const [showSuccessCard, setShowSuccessCard] = useState<boolean>(false);
   const [copyButtonText, setCopyButtonText] = useState<string>('Copy Signature');
 
+  // Load user profile
+  const loadUserProfile = async (): Promise<void> => {
+    try {
+      setLoading(true);
+      setError(null);
+      const profile = await GraphService.getUserProfileFromContext(context);
+      setUserProfile(profile);
+
+      setDisplayName(profile.displayName || '');
+      setJobTitle(profile.jobTitle || '');
+      setDepartment(profile.department || '');
+      setMail(profile.mail || '');
+      setBusinessPhone(profile.businessPhones && profile.businessPhones.length > 0 ? profile.businessPhones[0] : '');
+      
+      setLoading(false);
+    } catch (err: any) {
+      setError(err.message || 'Failed to load profile');
+      setLoading(false);
+    }
+  };
+
   // Update officeLocation whenever officeType or specificLocation changes
   useEffect(() => {
     const address = getFinalAddress(officeType, specificLocation);
@@ -85,27 +109,10 @@ export default function SedcSignatureGenerator(props: ISedcSignatureGeneratorPro
     }
   }, [displayName, jobTitle, department, mail, businessPhone, unit, personalMobile, 
       officeLocation, functionalName, sharedEmail, sharedPhone, signatureType]);
-
-  // Load user profile
-  const loadUserProfile = async (): Promise<void> => {
-    try {
-      setLoading(true);
-      setError(null);
-      const profile = await GraphService.getUserProfile(context);
-      setUserProfile(profile);
-
-      setDisplayName(profile.displayName || '');
-      setJobTitle(profile.jobTitle || '');
-      setDepartment(profile.department || '');
-      setMail(profile.mail || '');
-      setBusinessPhone(profile.businessPhones && profile.businessPhones.length > 0 ? profile.businessPhones[0] : '');
-      
-      setLoading(false);
-    } catch (err: any) {
-      setError(err.message || 'Failed to load profile');
-      setLoading(false);
-    }
-  };
+  // Auto-load profile on component mount
+  useEffect(() => {
+    loadUserProfile();
+  }, []);
 
   // Generate signature
   const generateSignature = (): void => {
@@ -509,9 +516,9 @@ export default function SedcSignatureGenerator(props: ISedcSignatureGeneratorPro
     return (
       <div style={{ marginBottom: '15px' }}>
         <div style={{
-          border: '1px solid #0078d4',
+          border: '1px solid #00a651',
           borderRadius: '4px',
-          backgroundColor: '#f0f6ff'
+          backgroundColor: '#f0fff4'
         }}>
           <div
             onClick={() => setShowQuickStart(!showQuickStart)}
@@ -521,10 +528,10 @@ export default function SedcSignatureGenerator(props: ISedcSignatureGeneratorPro
               justifyContent: 'space-between',
               alignItems: 'center',
               cursor: 'pointer',
-              borderBottom: showQuickStart ? '1px solid #0078d4' : 'none'
+              borderBottom: showQuickStart ? '1px solid #00a651' : 'none'
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = '#e0ecff';
+              e.currentTarget.style.backgroundColor = '#e6f9ed';
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.backgroundColor = 'transparent';
@@ -533,12 +540,12 @@ export default function SedcSignatureGenerator(props: ISedcSignatureGeneratorPro
             <span style={{
               fontSize: '9pt',
               fontWeight: '500',
-              color: '#0078d4'
+              color: '#00a651'
             }}>
               💡 Quick Tips (click to {showQuickStart ? 'hide' : 'show'})
             </span>
             
-            
+            <a
               href="#"
               onClick={(e) => {
                 e.preventDefault();
@@ -547,7 +554,7 @@ export default function SedcSignatureGenerator(props: ISedcSignatureGeneratorPro
               }}
               style={{
                 fontSize: '8pt',
-                color: '#0078d4',
+                color: '#00a651',
                 textDecoration: 'none',
                 padding: '2px 6px'
               }}
@@ -575,16 +582,16 @@ export default function SedcSignatureGenerator(props: ISedcSignatureGeneratorPro
               
               <div style={{ marginLeft: '10px' }}>
                 <div style={{ marginBottom: '5px' }}>
-                  1️⃣ Click [Auto-fill] to load your SEDC profile
+                  1. Click [Auto-fill] to load your SEDC profile
                 </div>
                 <div style={{ marginBottom: '5px' }}>
-                  2️⃣ Review, add, and edit your information
+                  2. Review, add, and edit your information
                 </div>
                 <div style={{ marginBottom: '5px' }}>
-                  3️⃣ Select your office location
+                  3. Select your office location
                 </div>
                 <div style={{ marginBottom: '5px' }}>
-                  4️⃣ Copy and paste into Outlook
+                  4. Copy and paste into Outlook
                 </div>
               </div>
 
@@ -679,39 +686,189 @@ export default function SedcSignatureGenerator(props: ISedcSignatureGeneratorPro
   };
 
   // Render Help Modal (placeholder - you'll need to add the full modal content)
-  const renderHelpModal = (): JSX.Element | null => {
-    if (!showHelpModal) return null;
+ // Render Help Modal
+const renderHelpModal = (): JSX.Element | null => {
+  if (!showHelpModal) return null;
 
-    return (
+  return (
+    <div style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      zIndex: 1000,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: '20px'
+    }}>
       <div style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundColor: 'rgba(0, 0, 0, 0.5)',
-        zIndex: 1000,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '20px'
+        backgroundColor: 'white',
+        borderRadius: '4px',
+        maxWidth: '700px',
+        maxHeight: '90vh',
+        overflow: 'auto',
+        boxShadow: '0 4px 16px rgba(0,0,0,0.2)'
       }}>
+        {/* Header */}
         <div style={{
+          padding: '20px',
+          borderBottom: '1px solid #e0e0e0',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          position: 'sticky',
+          top: 0,
           backgroundColor: 'white',
-          borderRadius: '4px',
-          maxWidth: '700px',
-          maxHeight: '90vh',
-          overflow: 'auto',
-          boxShadow: '0 4px 16px rgba(0,0,0,0.2)',
-          padding: '20px'
+          zIndex: 1
         }}>
-          <h2>Help & Instructions</h2>
-          <p>Detailed help content goes here...</p>
-          <PrimaryButton text="Close" onClick={() => setShowHelpModal(false)} />
+          <h2 style={{ margin: 0, fontSize: '14pt', color: '#333' }}>
+            📖 How to Use SEDC Signature Generator
+          </h2>
+          <IconButton
+            iconProps={{ iconName: 'Cancel' }}
+            title="Close"
+            onClick={() => setShowHelpModal(false)}
+          />
+        </div>
+
+        {/* Content */}
+        <div style={{ padding: '20px', fontSize: '9pt', lineHeight: '1.6' }}>
+          
+          {/* Getting Started */}
+          <h3 style={{ fontSize: '11pt', color: '#0078d4', marginBottom: '10px' }}>
+            Getting Started
+          </h3>
+          <hr style={{ border: 'none', borderTop: '1px solid #e0e0e0', marginBottom: '15px' }} />
+
+          <div style={{ marginBottom: '20px' }}>
+            <h4 style={{ fontSize: '10pt', marginBottom: '8px' }}>1️⃣ Auto-fill Your Information</h4>
+            <p style={{ marginLeft: '20px', color: '#666' }}>
+              Click <strong>[Auto-fill]</strong> button to automatically load your name, email, and other available details from your SEDC profile.
+            </p>
+          </div>
+
+          <div style={{ marginBottom: '20px' }}>
+            <h4 style={{ fontSize: '10pt', marginBottom: '8px' }}>2️⃣ Review, Add, and Edit Your Details</h4>
+            <ul style={{ color: '#666' }}>
+              <li>Click ✏️ next to any field to edit it</li>
+              <li>Fields marked <span style={{ backgroundColor: '#fff4ce', color: '#856404', padding: '1px 4px', borderRadius: '2px', fontSize: '7pt' }}>Req</span> are required</li>
+              <li>Use 🔄 to refresh from SEDC Profile</li>
+              <li>Use 🗑️ to clear optional fields</li>
+              <li>Add information like Personal Mobile manually if needed</li>
+            </ul>
+          </div>
+
+          <div style={{ marginBottom: '20px' }}>
+            <h4 style={{ fontSize: '10pt', marginBottom: '8px' }}>3️⃣ Select Your Office Location</h4>
+            <ul style={{ color: '#666' }}>
+              <li>Choose your office type from the dropdown</li>
+              <li>Select specific location if you're in RO or PIBU</li>
+              <li>You can customize the address after selecting</li>
+            </ul>
+          </div>
+
+          <div style={{ marginBottom: '30px' }}>
+            <h4 style={{ fontSize: '10pt', marginBottom: '8px' }}>4️⃣ Copy Your Signature</h4>
+            <ul style={{ color: '#666' }}>
+              <li>Click <strong>[Copy Signature]</strong> when all required fields are filled</li>
+              <li>Your signature will be copied to clipboard</li>
+              <li>Follow the instructions below to paste it in Outlook</li>
+            </ul>
+          </div>
+
+          {/* Adding to Outlook */}
+          <h3 style={{ fontSize: '11pt', color: '#0078d4', marginBottom: '10px' }}>
+            📧 Adding Signature to Outlook
+          </h3>
+          <hr style={{ border: 'none', borderTop: '1px solid #e0e0e0', marginBottom: '15px' }} />
+
+          {/* Outlook Web */}
+          <div style={{
+            backgroundColor: '#f9f9f9',
+            border: '1px solid #e0e0e0',
+            borderRadius: '4px',
+            padding: '15px',
+            marginBottom: '15px'
+          }}>
+            <h4 style={{ fontSize: '10pt', marginBottom: '10px', color: '#333' }}>
+              Outlook Web (outlook.office.com)
+            </h4>
+            <ol style={{ color: '#666' }}>
+              <li>Click ⚙️ <strong>Settings</strong> icon (top-right corner)</li>
+              <li>Go to <strong>Account → Signatures</strong></li>
+              <li>Click <strong>"+ New Signature"</strong> button</li>
+              <li>Enter signature name (e.g., "SEDC Email")</li>
+              <li>Paste your signature (Ctrl+V or Cmd+V)</li>
+              <li>Click <strong>Save</strong></li>
+            </ol>
+          </div>
+
+          {/* Outlook Desktop */}
+          <div style={{
+            backgroundColor: '#f9f9f9',
+            border: '1px solid #e0e0e0',
+            borderRadius: '4px',
+            padding: '15px',
+            marginBottom: '20px'
+          }}>
+            <h4 style={{ fontSize: '10pt', marginBottom: '10px', color: '#333' }}>
+              Outlook Desktop (Windows/Mac)
+            </h4>
+            <ol style={{ color: '#666' }}>
+              <li>Click <strong>File → Options → Mail</strong></li>
+              <li>Click <strong>"Signatures..."</strong> button</li>
+              <li>Click <strong>"New"</strong> to create a signature</li>
+              <li>Enter signature name</li>
+              <li>Paste signature in the edit box</li>
+              <li>Click <strong>OK</strong> to save</li>
+            </ol>
+          </div>
+
+          {/* Tips & Troubleshooting */}
+          <h3 style={{ fontSize: '11pt', color: '#0078d4', marginBottom: '10px' }}>
+            💡 Tips & Troubleshooting
+          </h3>
+          <hr style={{ border: 'none', borderTop: '1px solid #e0e0e0', marginBottom: '15px' }} />
+
+          <ul style={{ marginLeft: '20px', color: '#666', marginBottom: '15px' }}>
+            <li style={{ marginBottom: '8px' }}>
+              If the logo doesn't appear, try pasting in Outlook Web first, then copying from there to Outlook Desktop
+            </li>
+            <li style={{ marginBottom: '8px' }}>
+              Make sure all <span style={{ backgroundColor: '#fff4ce', color: '#856404', padding: '1px 4px', borderRadius: '2px', fontSize: '7pt' }}>Req</span> fields are filled before copying
+            </li>
+            <li style={{ marginBottom: '8px' }}>
+              You can return to this generator anytime to update your signature
+            </li>
+            <li style={{ marginBottom: '8px' }}>
+              Need assistance? Visit <a href="https://supportgo.sedc.my" target="_blank" rel="noopener noreferrer" style={{ color: '#0078d4', textDecoration: 'none' }}>SupportGo</a> for IT support
+            </li>
+          </ul>
+
+        </div>
+
+        {/* Footer */}
+        <div style={{
+          padding: '15px 20px',
+          borderTop: '1px solid #e0e0e0',
+          display: 'flex',
+          justifyContent: 'flex-end',
+          position: 'sticky',
+          bottom: 0,
+          backgroundColor: 'white'
+        }}>
+          <PrimaryButton
+            text="Close"
+            onClick={() => setShowHelpModal(false)}
+          />
         </div>
       </div>
-    );
-  };
+    </div>
+  );
+};
 
   // Render Success Card
   const renderSuccessCard = (): JSX.Element | null => {
@@ -780,18 +937,28 @@ export default function SedcSignatureGenerator(props: ISedcSignatureGeneratorPro
     <div className={styles.sedcSignatureGenerator}>
       <div className={styles.container}>
 
-        <div
-          style={{
-            marginBottom: '20px',
-            paddingBottom: '15px',
-            borderBottom: '2px solid #00a651'
-          }}
-        >
-          <h2 style={{ margin: 0, fontSize: '14pt', color: '#333' }}>
-            SEDC Email Signature Generator
-          </h2>
-        </div>
-
+      <div
+        style={{
+          marginBottom: '20px',
+          paddingBottom: '15px',
+          borderBottom: '2px solid #00a651',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between'
+        }}
+      >
+        <h2 style={{ margin: 0, fontSize: '14pt', color: '#333' }}>
+          SEDC Email Signature Generator
+        </h2>
+        <img 
+          src="https://sedc.com.my/wp-content/uploads/2025/08/SEDC-new-logo-2025-scaled.png" 
+          alt="SEDC Logo" 
+          style={{ 
+            height: '40px',
+            width: 'auto'
+          }} 
+        />
+      </div>
         {renderQuickStartGuide()}
 
         {error && (
@@ -1128,7 +1295,7 @@ export default function SedcSignatureGenerator(props: ISedcSignatureGeneratorPro
                     borderRadius: '3px',
                     marginTop: '10px'
                   }}>
-                    💡 Tip: You can customize the address below after selecting
+                    💡 Tip: You can edit the address below after selecting
                   </div>
                 </div>
 
