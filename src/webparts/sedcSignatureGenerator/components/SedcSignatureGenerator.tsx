@@ -7,6 +7,13 @@ import { GraphService, UserProfile } from '../../../services/GraphService';
 import { SignatureTemplates } from '../../../templates/SignatureTemplates';
 import { officeAddresses, officeTypeLabels, getFinalAddress } from '../../../data/OfficeAddresses';
 
+export default function SedcSignatureGenerator(props: ISedcSignatureGeneratorProps): JSX.Element {
+  // DEBUG LOGS
+  console.log('🔍 SEDC Signature Generator - Component Loading');
+  console.log('🔍 Props received:', props);
+  console.log('🔍 Context received:', props.context);
+  console.log('🔍 Context exists?', !!props.context);
+  console.log('🔍 msGraphClientFactory exists?', !!props.context?.msGraphClientFactory);
 
 // Field placeholders
 const fieldPlaceholders: Record<string, string> = {
@@ -21,9 +28,6 @@ const fieldPlaceholders: Record<string, string> = {
   sharedEmail: 'e.g., hr@sedc.my, support@sedc.my',
   sharedPhone: 'e.g., +6082-416918'
 };
-
-
-export default function SedcSignatureGenerator(props: ISedcSignatureGeneratorProps): JSX.Element {
   const { context } = props;
 
   // State variables
@@ -65,6 +69,8 @@ export default function SedcSignatureGenerator(props: ISedcSignatureGeneratorPro
   const [showSuccessCard, setShowSuccessCard] = useState<boolean>(false);
   const [copyButtonText, setCopyButtonText] = useState<string>('Copy Signature');
 
+
+  
   // Load user profile
   const loadUserProfile = async (): Promise<void> => {
     try {
