@@ -1,10 +1,13 @@
 import { MSGraphClientV3 } from '@microsoft/sp-http';
-import * as MicrosoftGraph from '@microsoft/microsoft-graph-types';
+//import * as MicrosoftGraph from '@microsoft/microsoft-graph-types';
+import { WebPartContext } from '@microsoft/sp-webpart-base';
+import { SignatureData } from './../templates/SignatureTemplates';
 
 export interface UserProfile {
   displayName: string;
   jobTitle: string;
   mail: string;
+  unit: string;
   mobilePhone: string;
   businessPhones: string[];
   officeLocation: string;
@@ -22,7 +25,7 @@ export class GraphService {
 
   public async getUserProfile(): Promise<UserProfile> {
     try {
-      const user: MicrosoftGraph.User = await this.graphClient
+      const user: SignatureData = await this.graphClient
         .api('/me')
         .select('displayName,jobTitle,mail,mobilePhone,businessPhones,officeLocation,department,companyName')
         .get();
@@ -41,6 +44,7 @@ export class GraphService {
         displayName: user.displayName || '',
         jobTitle: user.jobTitle || '',
         mail: user.mail || '',
+        unit: user.unit || '',
         mobilePhone: user.mobilePhone || '',
         businessPhones: user.businessPhones || [],
         officeLocation: user.officeLocation || '',
@@ -55,9 +59,9 @@ export class GraphService {
   }
 
   // Add this static method
-    public static async getUserProfileFromContext(context: any): Promise<UserProfile> {
-      const graphClient = await context.msGraphClientFactory.getClient('3');
-      const service = new GraphService(graphClient);
-      return service.getUserProfile();
-    }
+public static async getUserProfileFromContext(context: WebPartContext): Promise<UserProfile> {
+  const graphClient = await context.msGraphClientFactory.getClient('3');
+  const service = new GraphService(graphClient);
+  return service.getUserProfile();
+}
 }

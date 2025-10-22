@@ -22,31 +22,6 @@ export interface SignatureData {
 }
 
 export class SignatureTemplates {
-private static calculateLogoSettings(data: SignatureData): { height: number; clipPercent: number } {
-  let lines = 0;
-  
-  // Count lines (same as before)
-  lines++; // Name
-  lines++; // Department  
-  lines++; // Email
-  if (data.jobTitle) lines++;
-  if (data.unit) lines++;
-  if (data.businessPhones && data.businessPhones.length > 0) lines++;
-  if (data.personalMobile) lines++;
-  if (data.officeLocation && data.includeOffice) lines++;
-  
-  // Adjusted heights for overflow cropping (slightly taller than clip-path)
-  const settings: Record<number, { height: number; clipPercent: number }> = {
-    3: { height: 55, clipPercent: 0 },   // Minimal (clipPercent not used anymore)
-    4: { height: 62, clipPercent: 0 },
-    5: { height: 70, clipPercent: 0 },   // Standard
-    6: { height: 80, clipPercent: 0 },
-    7: { height: 95, clipPercent: 0 },   // Maximum
-    8: { height: 105, clipPercent: 0 },
-  };
-  
-  return settings[lines] || settings[3];
-}
 
   public static generateTemplate1(data: SignatureData): string {
     const phone = data.businessPhones && data.businessPhones.length > 0 ? data.businessPhones[0] : '';
@@ -270,7 +245,6 @@ public static generateTemplate4(data: SignatureData): string {
   const hasPersonalSocials = data.personalLinkedIn || data.personalFacebook || data.personalInstagram || data.personalTwitter || data.personalTikTok;
   const hasOfficeLocation = data.includeOffice && data.officeLocation;
 
-  const { /*height: logoHeight, clipPercent */} = this.calculateLogoSettings(data);
 
   return `
     <table cellpadding="0" cellspacing="0" border="0" style="font-family: Arial, sans-serif; font-size: 10pt; color: #333333; border-collapse: collapse; width: 600px; table-layout: fixed;">

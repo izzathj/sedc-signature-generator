@@ -3,11 +3,10 @@ import { useState, useEffect } from 'react';
 import styles from './SedcSignatureGenerator.module.scss';
 import { ISedcSignatureGeneratorProps } from './ISedcSignatureGeneratorProps';
 import { PrimaryButton, DefaultButton, IconButton, MessageBar, MessageBarType, Spinner } from '@fluentui/react';
-import { GraphService } from '../../../services/GraphService';
+import { GraphService, UserProfile } from '../../../services/GraphService';
 import { SignatureTemplates } from '../../../templates/SignatureTemplates';
 import { officeAddresses, officeTypeLabels, getFinalAddress } from '../../../data/OfficeAddresses';
 
-//import { WebPartContext } from '@microsoft/sp-webpart-base';
 
 // Field placeholders
 const fieldPlaceholders: Record<string, string> = {
@@ -28,7 +27,7 @@ export default function SedcSignatureGenerator(props: ISedcSignatureGeneratorPro
   const { context } = props;
 
   // State variables
-  const [userProfile, setUserProfile] = useState<any>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [signatureHtml, setSignatureHtml] = useState<string>('');
@@ -81,11 +80,36 @@ export default function SedcSignatureGenerator(props: ISedcSignatureGeneratorPro
       setBusinessPhone(profile.businessPhones && profile.businessPhones.length > 0 ? profile.businessPhones[0] : '');
       
       setLoading(false);
-    } catch (err: any) {
-      setError(err.message || 'Failed to load profile');
-      setLoading(false);
-    }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load profile');
+        setLoading(false);
+      }
   };
+
+  // Generate signature
+  function generateSignature(): void {
+    const data = {
+      displayName: signatureType === 'personal' ? displayName : functionalName,
+      jobTitle: signatureType === 'personal' ? jobTitle : '',
+      department: department,
+      companyName: 'SEDC',
+      mail: signatureType === 'personal' ? mail : sharedEmail,
+      businessPhones: signatureType === 'personal' 
+        ? (businessPhone ? [businessPhone] : [])
+        : (sharedPhone ? [sharedPhone] : []),
+      mobilePhone: signatureType === 'personal' ? (personalMobile || '') : '',
+      officeLocation: officeLocation || '',
+      includePhoto: true,
+      includeOffice: !!officeLocation,
+      unit: signatureType === 'personal' ? (unit || undefined) : undefined,
+      personalMobile: signatureType === 'personal' ? (personalMobile || undefined) : undefined
+    };
+    
+
+
+    const html = SignatureTemplates.generateTemplate4(data);
+    setSignatureHtml(html);
+  }
 
   // Update officeLocation whenever officeType or specificLocation changes
   useEffect(() => {
@@ -111,32 +135,10 @@ export default function SedcSignatureGenerator(props: ISedcSignatureGeneratorPro
       officeLocation, functionalName, sharedEmail, sharedPhone, signatureType]);
   // Auto-load profile on component mount
   useEffect(() => {
-    loadUserProfile();
+    loadUserProfile().catch((err) => console.error('Failed to load profile on mount:', err));
+    generateSignature();
   }, []);
 
-  // Generate signature
-  const generateSignature = (): void => {
-    const data = {
-      displayName: signatureType === 'personal' ? displayName : functionalName,
-      jobTitle: signatureType === 'personal' ? jobTitle : '',
-      department: department,
-      companyName: 'SEDC',
-      mail: signatureType === 'personal' ? mail : sharedEmail,
-      businessPhones: signatureType === 'personal' 
-        ? (businessPhone ? [businessPhone] : [])
-        : (sharedPhone ? [sharedPhone] : []),
-      mobilePhone: signatureType === 'personal' ? (personalMobile || '') : '',
-      officeLocation: officeLocation || '',
-      photo: userProfile?.photo,
-      includePhoto: true,
-      includeOffice: !!officeLocation,
-      unit: signatureType === 'personal' ? (unit || undefined) : undefined,
-      personalMobile: signatureType === 'personal' ? (personalMobile || undefined) : undefined
-    };
-
-    const html = SignatureTemplates.generateTemplate4(data);
-    setSignatureHtml(html);
-  };
 
   // Validation
   const areRequiredFieldsFilled = (): boolean => {
@@ -223,7 +225,8 @@ export default function SedcSignatureGenerator(props: ISedcSignatureGeneratorPro
 
   const autoRetrieveFromAAD = async (fieldName: string): Promise<void> => {
     if (!userProfile) return;
-    
+    console.log("userProfile", JSON.stringify(userProfile));
+
     if (fieldName === 'displayName') setTempValue(userProfile.displayName || '');
     else if (fieldName === 'jobTitle') setTempValue(userProfile.jobTitle || '');
     else if (fieldName === 'unit') setTempValue(userProfile.unit || '');
@@ -765,7 +768,7 @@ const renderHelpModal = (): JSX.Element | null => {
             <h4 style={{ fontSize: '10pt', marginBottom: '8px' }}>3️⃣ Select Your Office Location</h4>
             <ul style={{ color: '#666' }}>
               <li>Choose your office type from the dropdown</li>
-              <li>Select specific location if you're in RO or PIBU</li>
+              <li>Select specific location if you&apos;re in RO or PIBU</li>
               <li>You can customize the address after selecting</li>
             </ul>
           </div>
@@ -799,8 +802,8 @@ const renderHelpModal = (): JSX.Element | null => {
             <ol style={{ color: '#666' }}>
               <li>Click ⚙️ <strong>Settings</strong> icon (top-right corner)</li>
               <li>Go to <strong>Account → Signatures</strong></li>
-              <li>Click <strong>"+ New Signature"</strong> button</li>
-              <li>Enter signature name (e.g., "SEDC Email")</li>
+              <li>Click <strong>&quot;+ New Signature&quot;</strong> button</li>
+              <li>Enter signature name (e.g., &quot;SEDC Email&quot;)</li>
               <li>Paste your signature (Ctrl+V or Cmd+V)</li>
               <li>Click <strong>Save</strong></li>
             </ol>
@@ -819,8 +822,8 @@ const renderHelpModal = (): JSX.Element | null => {
             </h4>
             <ol style={{ color: '#666' }}>
               <li>Click <strong>File → Options → Mail</strong></li>
-              <li>Click <strong>"Signatures..."</strong> button</li>
-              <li>Click <strong>"New"</strong> to create a signature</li>
+              <li>Click <strong>&quot;Signatures...&quot;</strong> button</li>
+              <li>Click <strong>&quot;New&quot;</strong> to create a signature</li>
               <li>Enter signature name</li>
               <li>Paste signature in the edit box</li>
               <li>Click <strong>OK</strong> to save</li>
@@ -835,7 +838,7 @@ const renderHelpModal = (): JSX.Element | null => {
 
           <ul style={{ marginLeft: '20px', color: '#666', marginBottom: '15px' }}>
             <li style={{ marginBottom: '8px' }}>
-              If the logo doesn't appear, try pasting in Outlook Web first, then copying from there to Outlook Desktop
+              If the logo doesn&apos;t appear, try pasting in Outlook Web first, then copying from there to Outlook Desktop
             </li>
             <li style={{ marginBottom: '8px' }}>
               Make sure all <span style={{ backgroundColor: '#fff4ce', color: '#856404', padding: '1px 4px', borderRadius: '2px', fontSize: '7pt' }}>Req</span> fields are filled before copying
