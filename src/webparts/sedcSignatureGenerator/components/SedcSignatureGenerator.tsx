@@ -1,329 +1,231 @@
 import * as React from 'react';
 import { useState, useEffect } from 'react';
 import styles from './SedcSignatureGenerator.module.scss';
-import type { ISedcSignatureGeneratorProps } from './ISedcSignatureGeneratorProps';
-import { PrimaryButton, IconButton, /*Toggle, TextField,*/ Spinner, MessageBar, MessageBarType } from '@fluentui/react';
-import { GraphService, UserProfile } from '../../../services/GraphService';
-import { SignatureTemplates, SignatureData } from '../../../templates/SignatureTemplates';
+import { ISedcSignatureGeneratorProps } from './ISedcSignatureGeneratorProps';
+import { PrimaryButton, DefaultButton, IconButton, MessageBar, MessageBarType, Spinner } from '@fluentui/react';
+import { GraphService } from '../../../services/GraphService';
+import { SignatureTemplates } from '../../../templates/SignatureTemplates';
 import { officeAddresses, officeTypeLabels, getFinalAddress } from '../../../data/OfficeAddresses';
 
-const SedcSignatureGenerator: React.FC<ISedcSignatureGeneratorProps> = (props) => {
-  // User profile state
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string>('');
+// Field placeholders
+const fieldPlaceholders: Record<string, string> = {
+  displayName: 'e.g., John Doe',
+  jobTitle: 'e.g., Senior Manager',
+  unit: 'e.g., Network Infrastructure & Security Unit',
+  department: 'e.g., Group Digital and Technology',
+  mail: 'e.g., john.doe@sedc.my',
+  businessPhone: 'e.g., 082551555 ext 123',
+  personalMobile: 'e.g., +60 12-345 6789',
+  functionalName: 'e.g., Leave Admin, HR Support, IT Helpdesk',
+  sharedEmail: 'e.g., hr@sedc.my, support@sedc.my',
+  sharedPhone: 'e.g., +6082-416918'
+};
+
+export default function SedcSignatureGenerator(props: ISedcSignatureGeneratorProps): JSX.Element {
+  const { context } = props;
+
+  // State variables
+  const [userProfile, setUserProfile] = useState<any>(null);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+  const [signatureHtml, setSignatureHtml] = useState<string>('');
   
-  // Editable user info fields
+  // Signature type
+  const [signatureType, setSignatureType] = useState<'personal' | 'shared'>('personal');
+
+  // Personal mailbox fields
   const [displayName, setDisplayName] = useState<string>('');
   const [jobTitle, setJobTitle] = useState<string>('');
   const [department, setDepartment] = useState<string>('');
   const [mail, setMail] = useState<string>('');
   const [businessPhone, setBusinessPhone] = useState<string>('');
-  
-  // Edit mode state for each field
+  const [unit, setUnit] = useState<string>('');
+  const [personalMobile, setPersonalMobile] = useState<string>('');
+
+  // Shared mailbox fields
+  const [functionalName, setFunctionalName] = useState<string>('');
+  const [sharedEmail, setSharedEmail] = useState<string>('');
+  const [sharedPhone, setSharedPhone] = useState<string>('');
+
+  // Office location
+  const [officeLocation, setOfficeLocation] = useState<string>('');
+  const [officeType, setOfficeType] = useState<string>('');
+  const [specificLocation, setSpecificLocation] = useState<string>('');
+  const [isAddressCustomized, setIsAddressCustomized] = useState<boolean>(false);
+  const [originalOfficeLocation, setOriginalOfficeLocation] = useState<string>('');
+
+  // UI state
   const [editingField, setEditingField] = useState<string | null>(null);
   const [tempValue, setTempValue] = useState<string>('');
-  
-  // Validation errors
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-  
-  // UI state for guide and modals
   const [showQuickStart, setShowQuickStart] = useState<boolean>(true);
   const [showHelpModal, setShowHelpModal] = useState<boolean>(false);
   const [showSuccessCard, setShowSuccessCard] = useState<boolean>(false);
   const [copyButtonText, setCopyButtonText] = useState<string>('Copy Signature');
 
-  //Office Addresses
-  const [officeType, setOfficeType] = useState<string>('');
-  const [specificLocation, setSpecificLocation] = useState<string>('');
+  // Update officeLocation whenever officeType or specificLocation changes
+  useEffect(() => {
+    const address = getFinalAddress(officeType, specificLocation);
+    setOfficeLocation(address);
+    setOriginalOfficeLocation(address);
+    setIsAddressCustomized(false);
+  }, [officeType, specificLocation]);
 
-  const [isAddressCustomized, setIsAddressCustomized] = useState<boolean>(false);
-  const [originalOfficeLocation, setOriginalOfficeLocation] = useState<string>('');
+  // Auto-fill department when switching to shared mailbox tab
+  useEffect(() => {
+    if (signatureType === 'shared' && userProfile && userProfile.department) {
+      setDepartment(userProfile.department);
+    }
+  }, [signatureType, userProfile]);
 
-  // Additional information
-  const [unit, setUnit] = useState<string>('');
-  const [personalMobile, setPersonalMobile] = useState<string>('');
-  const [officeLocation, setOfficeLocation] = useState<string>('');
-  
-  // Social media toggle and fields
-  // const [includeSocials, setIncludeSocials] = useState<boolean>(false);
-  // const [personalLinkedIn, setPersonalLinkedIn] = useState<string>('');
-  // const [personalFacebook, setPersonalFacebook] = useState<string>('');
-  // const [personalInstagram, setPersonalInstagram] = useState<string>('');
-  // const [personalTwitter, setPersonalTwitter] = useState<string>('');
-  // const [personalTikTok, setPersonalTikTok] = useState<string>('');
-  
-  // Social media validation
-  const [socialErrors /*setSocialErrors*/] = useState<Record<string, string>>({});
-  
-  // Other state
-  const [signatureHtml, setSignatureHtml] = useState<string>('');
-  const [copySuccess, setCopySuccess] = useState<boolean>(false);
+  // Generate signature whenever relevant fields change
+  useEffect(() => {
+    if (userProfile || signatureType === 'shared') {
+      generateSignature();
+    }
+  }, [displayName, jobTitle, department, mail, businessPhone, unit, personalMobile, 
+      officeLocation, functionalName, sharedEmail, sharedPhone, signatureType]);
 
   // Load user profile
   const loadUserProfile = async (): Promise<void> => {
     try {
       setLoading(true);
-      const graphClient = await props.context.msGraphClientFactory.getClient('3');
-      const graphService = new GraphService(graphClient);
-      const profile = await graphService.getUserProfile();
-      
+      setError(null);
+      const profile = await GraphService.getUserProfile(context);
       setUserProfile(profile);
-      
-      // Set editable fields with AAD data
+
       setDisplayName(profile.displayName || '');
       setJobTitle(profile.jobTitle || '');
       setDepartment(profile.department || '');
       setMail(profile.mail || '');
-      // Business phone: AAD first, then default to 082551555
-      setBusinessPhone(profile.businessPhones?.[0] || '082551555');
-      setOfficeLocation(profile.officeLocation || '');
+      setBusinessPhone(profile.businessPhones && profile.businessPhones.length > 0 ? profile.businessPhones[0] : '');
       
-      setError('');
-    } catch (err) {
-      setError('Failed to load user profile. Please ensure API permissions are granted.');
-      console.error(err);
-    } finally {
+      setLoading(false);
+    } catch (err: any) {
+      setError(err.message || 'Failed to load profile');
       setLoading(false);
     }
   };
 
-  // Validate URL format
-  // const isValidUrl = (url: string, platform: string): boolean => {
-  //   if (!url) return true;
-    
-  //   try {
-  //     const urlObj = new URL(url);
-  //     const hostname = urlObj.hostname.toLowerCase();
-      
-  //     switch (platform) {
-  //       case 'linkedin':
-  //         return hostname.indexOf('linkedin.com') !== -1;
-  //       case 'facebook':
-  //         return hostname.indexOf('facebook.com') !== -1 || hostname.indexOf('fb.com') !== -1;
-  //       case 'instagram':
-  //         return hostname.indexOf('instagram.com') !== -1;
-  //       case 'twitter':
-  //         return hostname.indexOf('twitter.com') !== -1 || hostname.indexOf('x.com') !== -1;
-  //       case 'tiktok':
-  //         return hostname.indexOf('tiktok.com') !== -1;
-  //       default:
-  //         return true;
-  //     }
-  //   } catch {
-  //     return false;
-  //   }
-  // };
-
-  // Validate social media URLs
-  // const validateSocialUrl = (platform: string, url: string): void => {
-  //   if (url && !isValidUrl(url, platform)) {
-  //     setSocialErrors(prev => ({
-  //       ...prev,
-  //       [platform]: `Please enter a valid ${platform} URL`
-  //     }));
-  //   } else {
-  //     setSocialErrors(prev => {
-  //       const newErrors = { ...prev };
-  //       delete newErrors[platform];
-  //       return newErrors;
-  //     });
-  //   }
-  // };
-
-  // Check if all required fields are filled
-  const areRequiredFieldsFilled = (): boolean => {
-    return !!(displayName && department && mail);
-  };
-
-  // Get list of missing required fields
-  const getMissingFields = (): string[] => {
-    const missing: string[] = [];
-    if (!displayName) missing.push('Name');
-    if (!department) missing.push('Department');
-    if (!mail) missing.push('Email');
-    return missing;
-  };
   // Generate signature
   const generateSignature = (): void => {
-    // Validate required fields
-    const errors: Record<string, string> = {};
-    if (!displayName.trim()) errors.displayName = 'Name is required';
-    if (!department.trim()) errors.department = 'Department is required';
-    if (!mail.trim()) errors.mail = 'Email is required';
-    
-    setFieldErrors(errors);
-    
-    // Don't generate if there are errors
-    if (Object.keys(errors).length > 0) {
-      return;
-    }
-
-    const data: SignatureData = {
-      displayName,
-      jobTitle,
-      department,
-      companyName: userProfile?.companyName || 'SEDC',
-      mail,
-      businessPhones: businessPhone ? [businessPhone] : [],
-      mobilePhone: personalMobile || '',
+    const data = {
+      displayName: signatureType === 'personal' ? displayName : functionalName,
+      jobTitle: signatureType === 'personal' ? jobTitle : '',
+      department: department,
+      companyName: 'SEDC',
+      mail: signatureType === 'personal' ? mail : sharedEmail,
+      businessPhones: signatureType === 'personal' 
+        ? (businessPhone ? [businessPhone] : [])
+        : (sharedPhone ? [sharedPhone] : []),
+      mobilePhone: signatureType === 'personal' ? (personalMobile || '') : '',
       officeLocation: officeLocation || '',
       photo: userProfile?.photo,
       includePhoto: true,
       includeOffice: !!officeLocation,
-      unit: unit || undefined,
-      personalMobile: personalMobile || undefined,
-      // personalLinkedIn: includeSocials ? personalLinkedIn || undefined : undefined,
-      // personalFacebook: includeSocials ? personalFacebook || undefined : undefined,
-      // personalInstagram: includeSocials ? personalInstagram || undefined : undefined,
-      // personalTwitter: includeSocials ? personalTwitter || undefined : undefined,
-      // personalTikTok: includeSocials ? personalTikTok || undefined : undefined,
+      unit: signatureType === 'personal' ? (unit || undefined) : undefined,
+      personalMobile: signatureType === 'personal' ? (personalMobile || undefined) : undefined
     };
 
     const html = SignatureTemplates.generateTemplate4(data);
     setSignatureHtml(html);
   };
 
-  // Update officeLocation whenever officeType or specificLocation changes
-  useEffect(() => {
-    const address = getFinalAddress(officeType, specificLocation);
-    setOfficeLocation(address);
-    setOriginalOfficeLocation(address); // Store original
-    setIsAddressCustomized(false); // Reset customization flag
-  }, [officeType, specificLocation]);
-
-  // Load profile on mount
-  useEffect(() => {
-    loadUserProfile().catch(console.error);
-  }, []);
-
-  // Regenerate signature when any field changes
-  useEffect(() => {
-    if (userProfile) {
-      generateSignature();
+  // Validation
+  const areRequiredFieldsFilled = (): boolean => {
+    if (signatureType === 'personal') {
+      return !!(displayName && department && mail);
+    } else {
+      return !!(functionalName && department && sharedEmail);
     }
-  }, [displayName, jobTitle, department, mail, businessPhone, unit, personalMobile, 
-      officeLocation/*, includeSocials, personalLinkedIn, personalFacebook, 
-      personalInstagram, personalTwitter, personalTikTok*/]);
+  };
 
-  // Start editing a field
+  const getMissingFields = (): string[] => {
+    const missing: string[] = [];
+    if (signatureType === 'personal') {
+      if (!displayName) missing.push('Name');
+      if (!department) missing.push('Department');
+      if (!mail) missing.push('Email');
+    } else {
+      if (!functionalName) missing.push('Functional Name');
+      if (!department) missing.push('Department');
+      if (!sharedEmail) missing.push('Email');
+    }
+    return missing;
+  };
+
+  // Edit functions
   const startEdit = (fieldName: string, currentValue: string): void => {
     setEditingField(fieldName);
     setTempValue(currentValue);
-    // Clear error for this field when editing
-    setFieldErrors(prev => {
-      const newErrors = { ...prev };
-      delete newErrors[fieldName];
-      return newErrors;
-    });
   };
 
-  // Check if field can be retrieved from AAD
-  const canRetrieveFromAAD = (fieldName: string): boolean => {
-    const aadFields = ['displayName', 'jobTitle', 'department', 'mail', 'businessPhone', 'officeLocation'];
-    return aadFields.indexOf(fieldName) !== -1;
-  };
-
-  // Auto-retrieve from AAD
-  const autoRetrieveFromAAD = (fieldName: string): void => {
-    if (!userProfile) return;
-
-    switch (fieldName) {
-      case 'displayName':
-        setTempValue(userProfile.displayName || '');
-        break;
-      case 'jobTitle':
-        setTempValue(userProfile.jobTitle || '');
-        break;
-      case 'department':
-        setTempValue(userProfile.department || '');
-        break;
-      case 'mail':
-        setTempValue(userProfile.mail || '');
-        break;
-      case 'businessPhone':
-        setTempValue(userProfile.businessPhones?.[0] || '082551555');
-        break;
-      case 'officeLocation':
-        setTempValue(userProfile.officeLocation || '');
-        break;
-    }
-  };
-
-  // Check if field is required
-  const isRequiredField = (fieldName: string): boolean => {
-    return ['displayName', 'department', 'mail'].indexOf(fieldName) !== -1;
-  };
-
-  // Delete field value
-  const deleteField = (fieldName: string): void => {
-    if (isRequiredField(fieldName)) {
-      alert(`${fieldName === 'displayName' ? 'Name' : fieldName === 'mail' ? 'Email' : 'Department'} is a required field and cannot be deleted.`);
-      return;
-    }
-
-    // Clear the temp value in edit mode
-    setTempValue('');
-    
-    // Also clear the actual field value
-    switch (fieldName) {
-      case 'jobTitle':
-        setJobTitle('');
-        break;
-      case 'businessPhone':
-        setBusinessPhone('082551555'); // Default value
-        break;
-      case 'unit':
-        setUnit('');
-        break;
-      case 'personalMobile':
-        setPersonalMobile('');
-        break;
-      case 'officeLocation':
-        setOfficeLocation('');
-        break;
-    }
-  };
-
-  // Save edited field
-  const saveEdit = (fieldName: string): void => {
-    // Validate required fields
-    if (isRequiredField(fieldName) && !tempValue.trim()) {
-      alert(`${fieldName === 'displayName' ? 'Name' : fieldName === 'mail' ? 'Email' : 'Department'} is required and cannot be empty.`);
-      return;
-    }
-
-    switch (fieldName) {
-      case 'displayName':
-        setDisplayName(tempValue);
-        break;
-      case 'jobTitle':
-        setJobTitle(tempValue);
-        break;
-      case 'department':
-        setDepartment(tempValue);
-        break;
-      case 'mail':
-        setMail(tempValue);
-        break;
-      case 'businessPhone':
-        setBusinessPhone(tempValue);
-        break;
-      case 'unit':
-        setUnit(tempValue);
-        break;
-      case 'personalMobile':
-        setPersonalMobile(tempValue);
-        break;
-      case 'officeLocation':
-        setOfficeLocation(tempValue);
-        break;
-    }
+  const cancelEdit = (): void => {
     setEditingField(null);
     setTempValue('');
   };
 
-  // Office address specific functions
+  const saveEdit = (fieldName: string): void => {
+    const requiredFields = ['displayName', 'department', 'mail', 'functionalName', 'sharedEmail'];
+    
+    if (tempValue.trim() === '' && requiredFields.indexOf(fieldName) !== -1) {
+      setFieldErrors(prev => ({
+        ...prev,
+        [fieldName]: 'This field is required'
+      }));
+      return;
+    }
+
+    const newErrors = { ...fieldErrors };
+    delete newErrors[fieldName];
+    setFieldErrors(newErrors);
+
+    if (fieldName === 'displayName') setDisplayName(tempValue);
+    else if (fieldName === 'jobTitle') setJobTitle(tempValue);
+    else if (fieldName === 'unit') setUnit(tempValue);
+    else if (fieldName === 'department') setDepartment(tempValue);
+    else if (fieldName === 'mail') setMail(tempValue);
+    else if (fieldName === 'businessPhone') setBusinessPhone(tempValue);
+    else if (fieldName === 'personalMobile') setPersonalMobile(tempValue);
+    else if (fieldName === 'functionalName') setFunctionalName(tempValue);
+    else if (fieldName === 'sharedEmail') setSharedEmail(tempValue);
+    else if (fieldName === 'sharedPhone') setSharedPhone(tempValue);
+
+    setEditingField(null);
+    setTempValue('');
+  };
+
+  const deleteField = (fieldName: string): void => {
+    if (fieldName === 'jobTitle') setJobTitle('');
+    else if (fieldName === 'unit') setUnit('');
+    else if (fieldName === 'businessPhone') setBusinessPhone('');
+    else if (fieldName === 'personalMobile') setPersonalMobile('');
+    else if (fieldName === 'sharedPhone') setSharedPhone('');
+    
+    setEditingField(null);
+    setTempValue('');
+  };
+
+  const canRetrieveFromAAD = (fieldName: string): boolean => {
+    if (signatureType === 'shared') {
+      return false;
+    }
+    const retrievableFields = ['displayName', 'jobTitle', 'unit', 'department', 'mail', 'businessPhone'];
+    return retrievableFields.indexOf(fieldName) !== -1;
+  };
+
+  const autoRetrieveFromAAD = async (fieldName: string): Promise<void> => {
+    if (!userProfile) return;
+    
+    if (fieldName === 'displayName') setTempValue(userProfile.displayName || '');
+    else if (fieldName === 'jobTitle') setTempValue(userProfile.jobTitle || '');
+    else if (fieldName === 'unit') setTempValue(userProfile.unit || '');
+    else if (fieldName === 'department') setTempValue(userProfile.department || '');
+    else if (fieldName === 'mail') setTempValue(userProfile.mail || '');
+    else if (fieldName === 'businessPhone') setTempValue(userProfile.businessPhones && userProfile.businessPhones.length > 0 ? userProfile.businessPhones[0] : '');
+  };
+
+  // Office address functions
   const startEditOfficeAddress = (): void => {
     setEditingField('officeAddress');
     setTempValue(officeLocation);
@@ -352,46 +254,152 @@ const SedcSignatureGenerator: React.FC<ISedcSignatureGeneratorProps> = (props) =
     setTempValue('');
   };
 
-  // Cancel editing
-  const cancelEdit = (): void => {
-    setEditingField(null);
-    setTempValue('');
+  // Copy signature
+  const copySignature = (): void => {
+    if (signatureHtml) {
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = signatureHtml;
+      document.body.appendChild(tempDiv);
+
+      const range = document.createRange();
+      range.selectNodeContents(tempDiv);
+      const selection = window.getSelection();
+      if (selection) {
+        selection.removeAllRanges();
+        selection.addRange(range);
+        document.execCommand('copy');
+        selection.removeAllRanges();
+      }
+
+      document.body.removeChild(tempDiv);
+
+      setCopyButtonText('✓ Copied!');
+      setShowSuccessCard(true);
+
+      setTimeout(() => {
+        setCopyButtonText('Copy Signature');
+      }, 3000);
+    }
   };
 
-  // Copy signature to clipboard
-  const copySignature = (): void => {
-  if (signatureHtml) {
-    // Create a temporary div to hold the HTML
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = signatureHtml;
-    document.body.appendChild(tempDiv);
+  // Render editable field inline
+  const renderEditableFieldInline = (label: string, fieldName: string, value: string, isRequired: boolean = false): JSX.Element => {
+    const isEditing = editingField === fieldName;
+    const hasError = fieldErrors[fieldName];
+    const canRetrieve = canRetrieveFromAAD(fieldName);
+    const canDelete = !isRequired;
+    const placeholder = fieldPlaceholders[fieldName] || '(Not set)';
 
-    // Select and copy
-    const range = document.createRange();
-    range.selectNodeContents(tempDiv);
-    const selection = window.getSelection();
-    if (selection) {
-      selection.removeAllRanges();
-      selection.addRange(range);
-      document.execCommand('copy');
-      selection.removeAllRanges();
-    }
+    return (
+      <div style={{ marginBottom: '10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{ 
+            minWidth: '130px', 
+            display: 'flex', 
+            alignItems: 'center',
+            fontSize: '9pt',
+            fontWeight: '500',
+            color: '#333'
+          }}>
+            <span>{label}:</span>
+            {isRequired && (
+              <span style={{ 
+                marginLeft: '6px', 
+                fontSize: '7pt', 
+                color: '#856404', 
+                backgroundColor: '#fff4ce', 
+                padding: '1px 4px', 
+                borderRadius: '2px',
+                fontWeight: '500'
+              }}>
+                Req
+              </span>
+            )}
+          </div>
 
-    // Clean up
-    document.body.removeChild(tempDiv);
+          {isEditing ? (
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <input
+                type="text"
+                value={tempValue}
+                onChange={(e) => setTempValue(e.target.value)}
+                style={{ 
+                  flex: 1,
+                  padding: '6px 8px',
+                  border: '1px solid #ccc',
+                  borderRadius: '2px',
+                  fontSize: '9pt'
+                }}
+                autoFocus
+              />
+              {canRetrieve && (
+                <IconButton
+                  iconProps={{ iconName: 'Refresh' }}
+                  title="Refresh from SEDC Profile"
+                  onClick={() => autoRetrieveFromAAD(fieldName)}
+                  styles={{ root: { color: '#0078d4', minWidth: '32px', height: '32px' } }}
+                />
+              )}
+              {canDelete && (
+                <IconButton
+                  iconProps={{ iconName: 'Delete' }}
+                  title="Delete"
+                  onClick={() => deleteField(fieldName)}
+                  styles={{ root: { color: '#d13438', minWidth: '32px', height: '32px' } }}
+                />
+              )}
+              <IconButton
+                iconProps={{ iconName: 'Accept' }}
+                title="Save"
+                onClick={() => saveEdit(fieldName)}
+                styles={{ root: { color: '#107c10', minWidth: '32px', height: '32px' } }}
+              />
+              <IconButton
+                iconProps={{ iconName: 'Cancel' }}
+                title="Cancel"
+                onClick={cancelEdit}
+                styles={{ root: { color: '#d13438', minWidth: '32px', height: '32px' } }}
+              />
+            </div>
+          ) : (
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center' }}>
+              <div style={{ 
+                flex: 1,
+                padding: '6px 8px', 
+                backgroundColor: '#f9f9f9', 
+                borderRadius: '2px',
+                border: '1px solid #e0e0e0',
+                fontSize: '9pt',
+                color: value ? '#333' : '#999',
+                fontStyle: value ? 'normal' : 'italic'
+              }}>
+                {value || placeholder}
+              </div>
+              <IconButton
+                iconProps={{ iconName: 'Edit' }}
+                title="Edit"
+                onClick={() => startEdit(fieldName, value)}
+                styles={{ root: { minWidth: '32px', height: '32px', marginLeft: '5px' } }}
+              />
+            </div>
+          )}
+        </div>
 
-    // Show success feedback
-    setCopyButtonText('✓ Copied!');
-    setShowSuccessCard(true);
+        {hasError && (
+          <div style={{ 
+            color: '#d13438', 
+            fontSize: '8pt', 
+            marginTop: '4px',
+            marginLeft: '140px'
+          }}>
+            {hasError}
+          </div>
+        )}
+      </div>
+    );
+  };
 
-    // Reset button text after 3 seconds
-    setTimeout(() => {
-      setCopyButtonText('Copy Signature');
-    }, 3000);
-  }
-};
-
-  // Render office address field with special handling
+  // Render office address field
   const renderOfficeAddressField = (): JSX.Element => {
     const isEditing = editingField === 'officeAddress';
     const hasAddress = !!officeLocation;
@@ -496,628 +504,460 @@ const SedcSignatureGenerator: React.FC<ISedcSignatureGeneratorProps> = (props) =
     );
   };
 
-
-// Render Quick Start Guide Card
-const renderQuickStartGuide = (): JSX.Element | null => {
-  if (!showQuickStart) {
+  // Render Quick Start Guide
+  const renderQuickStartGuide = (): JSX.Element => {
     return (
       <div style={{ marginBottom: '15px' }}>
-        <a 
-          href="#" 
-          onClick={(e) => { e.preventDefault(); setShowQuickStart(true); }}
-          style={{ 
-            color: '#0078d4', 
-            textDecoration: 'none',
-            fontSize: '9pt',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '5px'
-          }}
-        >
-          📘 Show Quick Start Guide
-        </a>
-      </div>
-    );
-  }
-
-  return (
-    <div style={{
-      border: '2px solid #0078d4',
-      borderRadius: '4px',
-      padding: '15px',
-      backgroundColor: '#f0f6ff',
-      marginBottom: '20px',
-      position: 'relative'
-    }}>
-      {/* Close button */}
-      <IconButton
-        iconProps={{ iconName: 'Cancel' }}
-        title="Close"
-        onClick={() => setShowQuickStart(false)}
-        styles={{
-          root: {
-            position: 'absolute',
-            top: '10px',
-            right: '10px',
-            color: '#666'
-          }
-        }}
-      />
-
-      {/* Title */}
-      <div style={{
-        fontSize: '11pt',
-        fontWeight: '600',
-        color: '#0078d4',
-        marginBottom: '12px',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '8px'
-      }}>
-        🎯 Quick Start Guide
-      </div>
-
-      {/* Content */}
-      <div style={{ fontSize: '9pt', color: '#333', lineHeight: '1.6' }}>
-        <p style={{ marginBottom: '10px' }}>
-          Welcome! Generate your SEDC email signature in 4 easy steps:
-        </p>
-        
-        <ol style={{ marginLeft: '20px', marginBottom: '10px' }}>
-          <li style={{ marginBottom: '6px' }}>
-            Click <strong>[Auto-fill]</strong> to load your SEDC profile
-          </li>
-          <li style={{ marginBottom: '6px' }}>
-            <strong>Review, add, and edit</strong> your information as needed
-          </li>
-          <li style={{ marginBottom: '6px' }}>
-            Select your <strong>office location</strong> from the dropdowns
-          </li>
-          <li style={{ marginBottom: '6px' }}>
-            Click <strong>[Copy Signature]</strong> and paste in Outlook
-          </li>
-        </ol>
-
         <div style={{
-          backgroundColor: '#e6f2ff',
-          padding: '8px 10px',
-          borderRadius: '3px',
-          fontSize: '8pt',
-          color: '#0078d4'
+          border: '1px solid #0078d4',
+          borderRadius: '4px',
+          backgroundColor: '#f0f6ff'
         }}>
-          💡 First time? Click <strong>[? How to Use]</strong> in the top corner for detailed instructions
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// Render Help Modal
-const renderHelpModal = (): JSX.Element | null => {
-  if (!showHelpModal) return null;
-
-  return (
-    <div style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: 'rgba(0, 0, 0, 0.5)',
-      zIndex: 1000,
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: '20px'
-    }}>
-      <div style={{
-        backgroundColor: 'white',
-        borderRadius: '4px',
-        maxWidth: '700px',
-        maxHeight: '90vh',
-        overflow: 'auto',
-        boxShadow: '0 4px 16px rgba(0,0,0,0.2)'
-      }}>
-        {/* Header */}
-        <div style={{
-          padding: '20px',
-          borderBottom: '1px solid #e0e0e0',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          position: 'sticky',
-          top: 0,
-          backgroundColor: 'white',
-          zIndex: 1
-        }}>
-          <h2 style={{ margin: 0, fontSize: '14pt', color: '#333' }}>
-            📖 How to Use SEDC Signature Generator
-          </h2>
-          <IconButton
-            iconProps={{ iconName: 'Cancel' }}
-            title="Close"
-            onClick={() => setShowHelpModal(false)}
-          />
-        </div>
-
-        {/* Content */}
-        <div style={{ padding: '20px', fontSize: '9pt', lineHeight: '1.6' }}>
-          
-          {/* Getting Started */}
-          <h3 style={{ fontSize: '11pt', color: '#0078d4', marginBottom: '10px' }}>
-            Getting Started
-          </h3>
-          <hr style={{ border: 'none', borderTop: '1px solid #e0e0e0', marginBottom: '15px' }} />
-
-          <div style={{ marginBottom: '20px' }}>
-            <h4 style={{ fontSize: '10pt', marginBottom: '8px' }}>1️⃣ Auto-fill Your Information</h4>
-            <p style={{ marginLeft: '20px', color: '#666' }}>
-              Click <strong>[Auto-fill from SEDC Profile]</strong> to automatically load your name, email, and other details from your Microsoft account.
-            </p>
-          </div>
-
-          <div style={{ marginBottom: '20px' }}>
-            <h4 style={{ fontSize: '10pt', marginBottom: '8px' }}>2️⃣ Review, Add, and Edit Your Details</h4>
-            <ul style={{ marginLeft: '35px', color: '#666' }}>
-              <li>Click ✏️ next to any field to edit it</li>
-              <li>Fields marked <span style={{ backgroundColor: '#fff4ce', color: '#856404', padding: '1px 4px', borderRadius: '2px', fontSize: '7pt' }}>Req</span> are required</li>
-              <li>Use 🔄 to refresh from SEDC Profile</li>
-              <li>Use 🗑️ to clear optional fields</li>
-              <li>Add information like Personal Mobile manually if needed</li>
-            </ul>
-          </div>
-
-          <div style={{ marginBottom: '20px' }}>
-            <h4 style={{ fontSize: '10pt', marginBottom: '8px' }}>3️⃣ Select Your Office Location</h4>
-            <ul style={{ marginLeft: '35px', color: '#666' }}>
-              <li>Choose your office type from the dropdown</li>
-              <li>Select specific location if you're in RO or PIBU</li>
-              <li>You can customize the address after selecting</li>
-            </ul>
-          </div>
-
-          <div style={{ marginBottom: '30px' }}>
-            <h4 style={{ fontSize: '10pt', marginBottom: '8px' }}>4️⃣ Copy Your Signature</h4>
-            <ul style={{ marginLeft: '35px', color: '#666' }}>
-              <li>Click <strong>[Copy Signature]</strong> when all required fields are filled</li>
-              <li>Your signature will be copied to clipboard</li>
-              <li>Follow the instructions below to paste it in Outlook</li>
-            </ul>
-          </div>
-
-          {/* Adding to Outlook */}
-          <h3 style={{ fontSize: '11pt', color: '#0078d4', marginBottom: '10px' }}>
-            📧 Adding Signature to Outlook
-          </h3>
-          <hr style={{ border: 'none', borderTop: '1px solid #e0e0e0', marginBottom: '15px' }} />
-
-          {/* Outlook Web */}
-          <div style={{
-            backgroundColor: '#f9f9f9',
-            border: '1px solid #e0e0e0',
-            borderRadius: '4px',
-            padding: '15px',
-            marginBottom: '15px'
-          }}>
-            <h4 style={{ fontSize: '10pt', marginBottom: '10px', color: '#333' }}>
-              Outlook Web (outlook.office.com)
-            </h4>
-            <ol style={{ marginLeft: '20px', color: '#666' }}>
-              <li>Click ⚙️ <strong>Settings</strong> icon (top-right corner)</li>
-              <li>Go to <strong>Account → Signatures</strong></li>
-              <li>Click <strong>"+ New Signature"</strong> button</li>
-              <li>Enter signature name (e.g., "SEDC Email")</li>
-              <li>Paste your signature (Ctrl+V or Cmd+V)</li>
-              <li>Click <strong>Save</strong></li>
-            </ol>
-          </div>
-
-          {/* Outlook Desktop */}
-          <div style={{
-            backgroundColor: '#f9f9f9',
-            border: '1px solid #e0e0e0',
-            borderRadius: '4px',
-            padding: '15px',
-            marginBottom: '20px'
-          }}>
-            <h4 style={{ fontSize: '10pt', marginBottom: '10px', color: '#333' }}>
-              Outlook Desktop (Windows/Mac)
-            </h4>
-            <ol style={{ marginLeft: '20px', color: '#666' }}>
-              <li>Click <strong>File → Options → Mail</strong></li>
-              <li>Click <strong>"Signatures..."</strong> button</li>
-              <li>Click <strong>"New"</strong> to create a signature</li>
-              <li>Enter signature name</li>
-              <li>Paste signature in the edit box</li>
-              <li>Click <strong>OK</strong> to save</li>
-            </ol>
-          </div>
-
-          {/* Tips & Troubleshooting */}
-          <h3 style={{ fontSize: '11pt', color: '#0078d4', marginBottom: '10px' }}>
-            💡 Tips & Troubleshooting
-          </h3>
-          <hr style={{ border: 'none', borderTop: '1px solid #e0e0e0', marginBottom: '15px' }} />
-
-          <ul style={{ marginLeft: '20px', color: '#666', marginBottom: '15px' }}>
-            <li style={{ marginBottom: '8px' }}>
-              If the logo doesn't appear, try pasting in Outlook Web first, then copying from there to Outlook Desktop
-            </li>
-            <li style={{ marginBottom: '8px' }}>
-              Make sure all <span style={{ backgroundColor: '#fff4ce', color: '#856404', padding: '1px 4px', borderRadius: '2px', fontSize: '7pt' }}>Req</span> fields are filled before copying
-            </li>
-            <li style={{ marginBottom: '8px' }}>
-              You can return to this generator anytime to update your signature
-            </li>
-            <li style={{ marginBottom: '8px' }}>
-              Need assistance? Visit <a href="https://supportgo.sedc.my" target="_blank" style={{ color: '#0078d4', textDecoration: 'none' }}>SupportGo</a> for IT support
-            </li>
-          </ul>
-
-        </div>
-
-        {/* Footer */}
-        <div style={{
-          padding: '15px 20px',
-          borderTop: '1px solid #e0e0e0',
-          display: 'flex',
-          justifyContent: 'flex-end',
-          position: 'sticky',
-          bottom: 0,
-          backgroundColor: 'white'
-        }}>
-          <PrimaryButton
-            text="Close"
-            onClick={() => setShowHelpModal(false)}
-          />
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// Render Success Card
-const renderSuccessCard = (): JSX.Element | null => {
-  if (!showSuccessCard) return null;
-
-  return (
-    <div style={{
-      border: '2px solid #107c10',
-      borderRadius: '4px',
-      padding: '15px',
-      backgroundColor: '#f0fff0',
-      marginTop: '15px',
-      position: 'relative'
-    }}>
-      {/* Close button */}
-      <IconButton
-        iconProps={{ iconName: 'Cancel' }}
-        title="Close"
-        onClick={() => setShowSuccessCard(false)}
-        styles={{
-          root: {
-            position: 'absolute',
-            top: '10px',
-            right: '10px',
-            color: '#666'
-          }
-        }}
-      />
-
-      {/* Title */}
-      <div style={{
-        fontSize: '11pt',
-        fontWeight: '600',
-        color: '#107c10',
-        marginBottom: '10px',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '8px'
-      }}>
-        ✓ Signature Copied Successfully!
-      </div>
-
-      {/* Content */}
-      <div style={{ fontSize: '9pt', color: '#333', lineHeight: '1.6', marginRight: '30px' }}>
-        <p style={{ marginBottom: '10px' }}>
-          📋 Your signature is now in your clipboard
-        </p>
-        
-        <p style={{ marginBottom: '8px', fontWeight: '600' }}>Next Steps:</p>
-        <ol style={{ marginLeft: '20px', marginBottom: '10px' }}>
-          <li>Open Outlook (Web or Desktop)</li>
-          <li>Go to Signature settings</li>
-          <li>Create new signature and paste (Ctrl+V)</li>
-        </ol>
-
-        <div style={{
-          backgroundColor: '#e6f2ff',
-          padding: '8px 10px',
-          borderRadius: '3px',
-          fontSize: '8pt',
-          color: '#0078d4'
-        }}>
-          Need detailed instructions? → Click <strong>[? How to Use]</strong> button above
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// Render editable field inline (label and field on same row)
-const renderEditableFieldInline = (label: string, fieldName: string, value: string, isRequired: boolean = false): JSX.Element => {
-  const isEditing = editingField === fieldName;
-  const hasError = fieldErrors[fieldName];
-  const canRetrieve = canRetrieveFromAAD(fieldName);
-  const canDelete = !isRequired;
-
-  return (
-    <div style={{ marginBottom: '10px' }}>
-      {/* Label and Field on same row */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-        {/* Label with required badge */}
-        <div style={{ 
-          minWidth: '130px', 
-          display: 'flex', 
-          alignItems: 'center',
-          fontSize: '9pt',
-          fontWeight: '500',
-          color: '#333'
-        }}>
-          <span>{label}:</span>
-          {isRequired && (
-            <span style={{ 
-              marginLeft: '6px', 
-              fontSize: '7pt', 
-              color: '#856404', 
-              backgroundColor: '#fff4ce', 
-              padding: '1px 4px', 
-              borderRadius: '2px',
-              fontWeight: '500'
+          <div
+            onClick={() => setShowQuickStart(!showQuickStart)}
+            style={{
+              padding: '8px 12px',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              cursor: 'pointer',
+              borderBottom: showQuickStart ? '1px solid #0078d4' : 'none'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = '#e0ecff';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'transparent';
+            }}
+          >
+            <span style={{
+              fontSize: '9pt',
+              fontWeight: '500',
+              color: '#0078d4'
             }}>
-              Req
+              💡 Quick Tips (click to {showQuickStart ? 'hide' : 'show'})
             </span>
+            
+            
+              href="#"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setShowHelpModal(true);
+              }}
+              style={{
+                fontSize: '8pt',
+                color: '#0078d4',
+                textDecoration: 'none',
+                padding: '2px 6px'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.textDecoration = 'underline';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.textDecoration = 'none';
+              }}
+            >
+              [? Help]
+            </a>
+          </div>
+
+          {showQuickStart && (
+            <div style={{
+              padding: '12px',
+              fontSize: '9pt',
+              color: '#333',
+              lineHeight: '1.6'
+            }}>
+              <p style={{ margin: '0 0 8px 0', fontWeight: '500' }}>
+                Generate your SEDC email signature in 4 steps:
+              </p>
+              
+              <div style={{ marginLeft: '10px' }}>
+                <div style={{ marginBottom: '5px' }}>
+                  1️⃣ Click [Auto-fill] to load your SEDC profile
+                </div>
+                <div style={{ marginBottom: '5px' }}>
+                  2️⃣ Review, add, and edit your information
+                </div>
+                <div style={{ marginBottom: '5px' }}>
+                  3️⃣ Select your office location
+                </div>
+                <div style={{ marginBottom: '5px' }}>
+                  4️⃣ Copy and paste into Outlook
+                </div>
+              </div>
+
+              <div style={{
+                marginTop: '10px',
+                fontSize: '8pt',
+                color: '#666',
+                fontStyle: 'italic'
+              }}>
+                Need detailed instructions? Click [? Help] above
+              </div>
+            </div>
           )}
         </div>
-
-        {/* Field */}
-        {isEditing ? (
-          <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '5px' }}>
-            <input
-              type="text"
-              value={tempValue}
-              onChange={(e) => setTempValue(e.target.value)}
-              style={{ 
-                flex: 1,
-                padding: '6px 8px',
-                border: '1px solid #ccc',
-                borderRadius: '2px',
-                fontSize: '9pt'
-              }}
-              autoFocus
-            />
-            {canRetrieve && (
-              <IconButton
-                iconProps={{ iconName: 'Refresh' }}
-                title="Refresh from AAD"
-                onClick={() => autoRetrieveFromAAD(fieldName)}
-                styles={{ root: { color: '#0078d4', minWidth: '32px', height: '32px' } }}
-              />
-            )}
-            {canDelete && (
-              <IconButton
-                iconProps={{ iconName: 'Delete' }}
-                title="Delete"
-                onClick={() => deleteField(fieldName)}
-                styles={{ root: { color: '#d13438', minWidth: '32px', height: '32px' } }}
-              />
-            )}
-            <IconButton
-              iconProps={{ iconName: 'Accept' }}
-              title="Save"
-              onClick={() => saveEdit(fieldName)}
-              styles={{ root: { color: '#107c10', minWidth: '32px', height: '32px' } }}
-            />
-            <IconButton
-              iconProps={{ iconName: 'Cancel' }}
-              title="Cancel"
-              onClick={cancelEdit}
-              styles={{ root: { color: '#d13438', minWidth: '32px', height: '32px' } }}
-            />
-          </div>
-        ) : (
-          <div style={{ flex: 1, display: 'flex', alignItems: 'center' }}>
-            <div style={{ 
-              flex: 1,
-              padding: '6px 8px', 
-              backgroundColor: '#f9f9f9', 
-              borderRadius: '2px',
-              border: '1px solid #e0e0e0',
-              fontSize: '9pt',
-              color: value ? '#333' : '#999'
-            }}>
-              {value || '(Not set)'}
-            </div>
-            <IconButton
-              iconProps={{ iconName: 'Edit' }}
-              title="Edit"
-              onClick={() => startEdit(fieldName, value)}
-              styles={{ root: { minWidth: '32px', height: '32px', marginLeft: '5px' } }}
-            />
-          </div>
-        )}
-      </div>
-
-      {/* Error message below if exists */}
-      {hasError && (
-        <div style={{ 
-          color: '#d13438', 
-          fontSize: '8pt', 
-          marginTop: '4px',
-          marginLeft: '140px'
-        }}>
-          {hasError}
-        </div>
-      )}
-    </div>
-  );
-};
-
-  if (loading) {
-    return (
-      <div className={styles.sedcSignatureGenerator}>
-        <Spinner label="Loading your profile..." />
       </div>
     );
-  }
+  };
 
-  if (error) {
+  // Render tabs
+  const renderTabs = (): JSX.Element => {
     return (
-      <div className={styles.sedcSignatureGenerator}>
-        <MessageBar messageBarType={MessageBarType.error}>
-          {error}
-        </MessageBar>
-        <PrimaryButton text="Retry" onClick={loadUserProfile} style={{ marginTop: '10px' }} />
-      </div>
-    );
-  }
-
- return (
-  <div className={styles.sedcSignatureGenerator}>
-    <div className={styles.container}>
-
-      {/* ===== Top Bar ===== */}
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: '20px',
-          paddingBottom: '15px',
-          borderBottom: '2px solid #00a651'
-        }}
-      >
-        <h2 style={{ margin: 0, fontSize: '14pt', color: '#333' }}>
-          SEDC Email Signature Generator
-        </h2>
-        <IconButton
-          iconProps={{ iconName: 'Help' }}
-          title="How to Use"
-          onClick={() => setShowHelpModal(true)}
-          styles={{
-            root: { fontSize: '12pt', color: '#0078d4' },
-            label: { fontSize: '9pt', marginLeft: '5px' }
+      <div style={{
+        display: 'flex',
+        gap: '4px',
+        marginBottom: '-1px',
+        position: 'relative',
+        zIndex: 1
+      }}>
+        <button
+          onClick={() => setSignatureType('personal')}
+          style={{
+            padding: '8px 20px',
+            fontSize: '10pt',
+            fontWeight: signatureType === 'personal' ? '600' : '400',
+            color: signatureType === 'personal' ? '#333' : '#666',
+            backgroundColor: signatureType === 'personal' ? '#fafafa' : '#f5f5f5',
+            border: '1px solid #d0d0d0',
+            borderBottom: signatureType === 'personal' ? 'none' : '1px solid #d0d0d0',
+            borderTopLeftRadius: '8px',
+            borderTopRightRadius: '8px',
+            cursor: signatureType === 'personal' ? 'default' : 'pointer',
+            position: 'relative',
+            zIndex: signatureType === 'personal' ? 3 : 1,
+            transition: 'background-color 0.2s ease'
           }}
-          text="How to Use"
-        />
-      </div>
+          onMouseEnter={(e) => {
+            if (signatureType !== 'personal') {
+              e.currentTarget.style.backgroundColor = '#ebebeb';
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (signatureType !== 'personal') {
+              e.currentTarget.style.backgroundColor = '#f5f5f5';
+            }
+          }}
+        >
+          Personal Mailbox
+        </button>
 
-      {/* ===== Auto-Fill Button ===== */}
-      <div style={{ marginBottom: '20px' }}>
-        <PrimaryButton
-          text="🔄 Auto-fill from SEDC Profile"
-          onClick={loadUserProfile}
-          disabled={loading}
-          iconProps={loading ? { iconName: 'ProgressRingDots' } : undefined}
+        <button
+          onClick={() => setSignatureType('shared')}
+          style={{
+            padding: '8px 20px',
+            fontSize: '10pt',
+            fontWeight: signatureType === 'shared' ? '600' : '400',
+            color: signatureType === 'shared' ? '#333' : '#666',
+            backgroundColor: signatureType === 'shared' ? '#fafafa' : '#f5f5f5',
+            border: '1px solid #d0d0d0',
+            borderBottom: signatureType === 'shared' ? 'none' : '1px solid #d0d0d0',
+            borderTopLeftRadius: '8px',
+            borderTopRightRadius: '8px',
+            cursor: signatureType === 'shared' ? 'default' : 'pointer',
+            position: 'relative',
+            zIndex: signatureType === 'shared' ? 3 : 1,
+            transition: 'background-color 0.2s ease'
+          }}
+          onMouseEnter={(e) => {
+            if (signatureType !== 'shared') {
+              e.currentTarget.style.backgroundColor = '#ebebeb';
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (signatureType !== 'shared') {
+              e.currentTarget.style.backgroundColor = '#f5f5f5';
+            }
+          }}
+        >
+          Shared Mailbox
+        </button>
+      </div>
+    );
+  };
+
+  // Render Help Modal (placeholder - you'll need to add the full modal content)
+  const renderHelpModal = (): JSX.Element | null => {
+    if (!showHelpModal) return null;
+
+    return (
+      <div style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        zIndex: 1000,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '20px'
+      }}>
+        <div style={{
+          backgroundColor: 'white',
+          borderRadius: '4px',
+          maxWidth: '700px',
+          maxHeight: '90vh',
+          overflow: 'auto',
+          boxShadow: '0 4px 16px rgba(0,0,0,0.2)',
+          padding: '20px'
+        }}>
+          <h2>Help & Instructions</h2>
+          <p>Detailed help content goes here...</p>
+          <PrimaryButton text="Close" onClick={() => setShowHelpModal(false)} />
+        </div>
+      </div>
+    );
+  };
+
+  // Render Success Card
+  const renderSuccessCard = (): JSX.Element | null => {
+    if (!showSuccessCard) return null;
+
+    return (
+      <div style={{
+        border: '2px solid #107c10',
+        borderRadius: '4px',
+        padding: '15px',
+        backgroundColor: '#f0fff0',
+        marginTop: '15px',
+        position: 'relative'
+      }}>
+        <IconButton
+          iconProps={{ iconName: 'Cancel' }}
+          title="Close"
+          onClick={() => setShowSuccessCard(false)}
           styles={{
             root: {
-              width: '100%',
-              height: '40px',
-              backgroundColor: '#00a651',
-              borderColor: '#00a651'
-            },
-            rootHovered: {
-              backgroundColor: '#008a43',
-              borderColor: '#008a43'
+              position: 'absolute',
+              top: '10px',
+              right: '10px',
+              color: '#666'
             }
           }}
         />
+
+        <div style={{
+          fontSize: '11pt',
+          fontWeight: '600',
+          color: '#107c10',
+          marginBottom: '10px'
+        }}>
+          ✓ Signature Copied Successfully!
+        </div>
+
+        <div style={{ fontSize: '9pt', color: '#333', lineHeight: '1.6', marginRight: '30px' }}>
+          <p style={{ marginBottom: '10px' }}>
+            📋 Your signature is now in your clipboard
+          </p>
+          
+          <p style={{ marginBottom: '8px', fontWeight: '600' }}>Next Steps:</p>
+          <ol style={{ marginLeft: '20px', marginBottom: '10px' }}>
+            <li>Open Outlook (Web or Desktop)</li>
+            <li>Go to Signature settings</li>
+            <li>Create new signature and paste (Ctrl+V)</li>
+          </ol>
+
+          <div style={{
+            backgroundColor: '#e6f2ff',
+            padding: '8px 10px',
+            borderRadius: '3px',
+            fontSize: '8pt',
+            color: '#0078d4'
+          }}>
+            Need detailed instructions? → Click <strong>[? Help]</strong> button above
+          </div>
+        </div>
       </div>
+    );
+  };
 
-      {/* ===== Quick Start Guide ===== */}
-      {renderQuickStartGuide()}
+  // Main return
+  return (
+    <div className={styles.sedcSignatureGenerator}>
+      <div className={styles.container}>
 
-      {/* ===== Error Message ===== */}
-      {error && (
-        <MessageBar messageBarType={MessageBarType.error} onDismiss={() => setError(null)}>
-          {error}
-        </MessageBar>
-      )}
+        <div
+          style={{
+            marginBottom: '20px',
+            paddingBottom: '15px',
+            borderBottom: '2px solid #00a651'
+          }}
+        >
+          <h2 style={{ margin: 0, fontSize: '14pt', color: '#333' }}>
+            SEDC Email Signature Generator
+          </h2>
+        </div>
 
-      {/* ===== Loading Spinner ===== */}
-      {loading && <Spinner label="Loading your profile..." />}
+        {renderQuickStartGuide()}
 
-      {/* ===== Success Message ===== */}
-      {copySuccess && (
-        <MessageBar messageBarType={MessageBarType.success} isMultiline={false}>
-          Signature copied to clipboard! Now paste it into Outlook settings.
-        </MessageBar>
-      )}
+        {error && (
+          <MessageBar messageBarType={MessageBarType.error} onDismiss={() => setError(null)}>
+            {error}
+          </MessageBar>
+        )}
 
-      {/* ===== Main Layout ===== */}
-      {!loading && (
-        <div className={styles.grid}>
-          {/* ===== Left Panel (Form) ===== */}
-          <div className={styles.controls}>
-            {/* ==== User Information ==== */}
-            <h3>User Information</h3>
-            <div className={styles.section}>
-              {/* Personal Details */}
-              <div
-                style={{
-                  border: '1px solid #d0d0d0',
-                  borderRadius: '4px',
-                  padding: '15px',
-                  backgroundColor: '#fafafa',
-                  marginBottom: '15px'
-                }}
-              >
-                <div
-                  style={{
-                    fontSize: '10pt',
-                    fontWeight: '600',
-                    marginBottom: '12px',
-                    color: '#333'
-                  }}
-                >
-                  Personal Details
+        {loading && <Spinner label="Loading your profile..." />}
+
+        {!loading && (
+          <div className={styles.grid}>
+            <div className={styles.controls}>
+              
+              {renderTabs()}
+
+              <div style={{
+                border: '1px solid #d0d0d0',
+                borderRadius: '0 4px 4px 4px',
+                backgroundColor: '#fafafa',
+                padding: '15px',
+                position: 'relative',
+                zIndex: 2
+              }}>
+                <div style={{ 
+                  display: 'flex', 
+                  justifyContent: 'space-between', 
+                  alignItems: 'center',
+                  marginBottom: '10px'
+                }}>
+                  <h3 style={{ margin: 0 }}>User Information</h3>
+                  <DefaultButton
+                    text="Auto-fill"
+                    iconProps={{ iconName: 'Refresh' }}
+                    onClick={loadUserProfile}
+                    disabled={loading || signatureType === 'shared'}
+                    styles={{
+                      root: {
+                        fontSize: '9pt',
+                        padding: '4px 12px',
+                        height: '28px',
+                        border: '1px solid #00a651',
+                        color: signatureType === 'shared' ? '#999' : '#00a651',
+                        backgroundColor: signatureType === 'shared' ? '#f0f0f0' : 'transparent'
+                      },
+                      rootHovered: {
+                        backgroundColor: signatureType === 'shared' ? '#f0f0f0' : '#f0fff0',
+                        borderColor: signatureType === 'shared' ? '#d0d0d0' : '#008a43'
+                      },
+                      rootPressed: {
+                        backgroundColor: '#e6f7e6'
+                      },
+                      rootDisabled: {
+                        backgroundColor: '#f0f0f0',
+                        borderColor: '#d0d0d0',
+                        color: '#999'
+                      },
+                      icon: {
+                        fontSize: '10pt'
+                      }
+                    }}
+                    title={signatureType === 'shared' ? 'Auto-fill not available for shared mailboxes' : 'Auto-fill from SEDC Profile'}
+                  />
                 </div>
 
-                {renderEditableFieldInline('Name', 'displayName', displayName, true)}
-                {renderEditableFieldInline('Title', 'jobTitle', jobTitle)}
-                {renderEditableFieldInline('Unit', 'unit', unit)}
-                {renderEditableFieldInline('Department', 'department', department, true)}
-              </div>
+                {signatureType === 'personal' ? (
+                  <>
+                    <div style={{
+                      border: '1px solid #d0d0d0',
+                      borderRadius: '4px',
+                      padding: '15px',
+                      backgroundColor: '#fafafa',
+                      marginBottom: '15px'
+                    }}>
+                      <div style={{
+                        fontSize: '10pt',
+                        fontWeight: '600',
+                        marginBottom: '12px',
+                        color: '#333'
+                      }}>
+                        Personal Details
+                      </div>
 
-              {/* Contact Details */}
-              <div
-                style={{
-                  border: '1px solid #d0d0d0',
-                  borderRadius: '4px',
-                  padding: '15px',
-                  backgroundColor: '#fafafa',
-                  marginBottom: '15px'
-                }}
-              >
-                <div
-                  style={{
-                    fontSize: '10pt',
-                    fontWeight: '600',
-                    marginBottom: '12px',
-                    color: '#333'
-                  }}
-                >
-                  Contact Details
-                </div>
+                      {renderEditableFieldInline('Name', 'displayName', displayName, true)}
+                      {renderEditableFieldInline('Title', 'jobTitle', jobTitle)}
+                      {renderEditableFieldInline('Unit', 'unit', unit)}
+                      {renderEditableFieldInline('Department', 'department', department, true)}
+                    </div>
 
-                {renderEditableFieldInline('Email', 'mail', mail, true)}
-                {renderEditableFieldInline('Business Phone', 'businessPhone', businessPhone)}
-                {renderEditableFieldInline('Personal Mobile', 'personalMobile', personalMobile)}
-              </div>
+                    <div style={{
+                      border: '1px solid #d0d0d0',
+                      borderRadius: '4px',
+                      padding: '15px',
+                      backgroundColor: '#fafafa',
+                      marginBottom: '15px'
+                    }}>
+                      <div style={{
+                        fontSize: '10pt',
+                        fontWeight: '600',
+                        marginBottom: '12px',
+                        color: '#333'
+                      }}>
+                        Contact Details
+                      </div>
 
-              {/* Info Message */}
-              <div
-                style={{
+                      {renderEditableFieldInline('Email', 'mail', mail, true)}
+                      {renderEditableFieldInline('Business Phone', 'businessPhone', businessPhone)}
+                      {renderEditableFieldInline('Personal Mobile', 'personalMobile', personalMobile)}
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div style={{
+                      fontSize: '8pt',
+                      color: '#0078d4',
+                      backgroundColor: '#e6f2ff',
+                      padding: '8px 10px',
+                      borderRadius: '3px',
+                      marginBottom: '15px'
+                    }}>
+                      ℹ️ Shared mailbox signatures are for departmental/functional emails (e.g., hr@sedc.my, support@sedc.my)
+                    </div>
+
+                    <div style={{
+                      border: '1px solid #d0d0d0',
+                      borderRadius: '4px',
+                      padding: '15px',
+                      backgroundColor: '#fafafa',
+                      marginBottom: '15px'
+                    }}>
+                      <div style={{
+                        fontSize: '10pt',
+                        fontWeight: '600',
+                        marginBottom: '12px',
+                        color: '#333'
+                      }}>
+                        Shared Mailbox Details
+                      </div>
+
+                      {renderEditableFieldInline('Functional Name', 'functionalName', functionalName, true)}
+                      {renderEditableFieldInline('Department', 'department', department, true)}
+                    </div>
+
+                    <div style={{
+                      border: '1px solid #d0d0d0',
+                      borderRadius: '4px',
+                      padding: '15px',
+                      backgroundColor: '#fafafa',
+                      marginBottom: '15px'
+                    }}>
+                      <div style={{
+                        fontSize: '10pt',
+                        fontWeight: '600',
+                        marginBottom: '12px',
+                        color: '#333'
+                      }}>
+                        Contact Details
+                      </div>
+
+                      {renderEditableFieldInline('Email', 'sharedEmail', sharedEmail, true)}
+                      {renderEditableFieldInline('Business Phone', 'sharedPhone', sharedPhone)}
+                    </div>
+                  </>
+                )}
+
+                <div style={{
                   fontSize: '8pt',
                   color: '#0078d4',
                   backgroundColor: '#e6f2ff',
@@ -1125,12 +965,10 @@ const renderEditableFieldInline = (label: string, fieldName: string, value: stri
                   borderRadius: '3px',
                   display: 'flex',
                   alignItems: 'center'
-                }}
-              >
-                <span style={{ marginRight: '5px' }}>ℹ️</span>
-                <span>
-                  <span
-                    style={{
+                }}>
+                  <span style={{ marginRight: '5px' }}>ℹ️</span>
+                  <span>
+                    <span style={{
                       backgroundColor: '#fff4ce',
                       color: '#856404',
                       padding: '1px 4px',
@@ -1138,82 +976,207 @@ const renderEditableFieldInline = (label: string, fieldName: string, value: stri
                       fontSize: '7pt',
                       fontWeight: '500',
                       marginRight: '4px'
-                    }}
-                  >
-                    Req
+                    }}>
+                      Req
+                    </span>
+                    = Required field must be completed for signature
                   </span>
-                  = Required field must be completed for signature
-                </span>
+                </div>
               </div>
-            </div>
 
-            {/* ==== Office Location ==== */}
-            <h3>Office Location</h3>
-            <div className={styles.section}>
-              {/* Office Selectors and Address */}
-              {renderOfficeSelectors()}
-              {renderOfficeAddressField()}
-            </div>
+              <h3>Office Location</h3>
+              <div className={styles.section}>
+                <div style={{
+                  border: '1px solid #d0d0d0',
+                  borderRadius: '4px',
+                  padding: '15px',
+                  backgroundColor: '#fafafa',
+                  marginBottom: '15px'
+                }}>
+                  <div style={{
+                    fontSize: '10pt',
+                    fontWeight: '600',
+                    marginBottom: '12px',
+                    color: '#333'
+                  }}>
+                    Select Your Office
+                  </div>
 
-            {/* ==== Copy Signature Button ==== */}
-            <PrimaryButton
-              text={copyButtonText}
-              onClick={copySignature}
-              iconProps={{ iconName: copyButtonText.includes('Copied') ? 'CheckMark' : 'Copy' }}
-              disabled={!areRequiredFieldsFilled()}
-              title={
-                !areRequiredFieldsFilled()
-                  ? `⚠️ Please complete all required fields:\n${getMissingFields()
-                      .map((f) => `• ${f}`)
-                      .join('\n')}`
-                  : 'Copy signature to clipboard'
-              }
-              styles={{
-                root: {
-                  backgroundColor: copyButtonText.includes('Copied') ? '#107c10' : '#0078d4',
-                  borderColor: copyButtonText.includes('Copied') ? '#107c10' : '#0078d4',
-                  width: '100%',
-                  marginTop: '20px'
-                },
-                rootDisabled: {
-                  backgroundColor: '#f3f2f1',
-                  borderColor: '#c8c6c4',
-                  color: '#a19f9d'
+                  <div style={{ marginBottom: '12px' }}>
+                    <label style={{
+                      fontSize: '9pt',
+                      fontWeight: '500',
+                      marginBottom: '5px',
+                      display: 'block'
+                    }}>
+                      Office Type:
+                    </label>
+                    <select
+                      value={officeType}
+                      onChange={(e) => {
+                        setOfficeType(e.target.value);
+                        setSpecificLocation('');
+                      }}
+                      style={{
+                        width: '100%',
+                        padding: '8px',
+                        border: '1px solid #ccc',
+                        borderRadius: '2px',
+                        fontSize: '9pt'
+                      }}
+                    >
+                      <option value="">-- Select Office Type --</option>
+                      {Object.keys(officeAddresses).map((key) => (
+                        <option key={key} value={key}>
+                          {officeTypeLabels[key]}
+                        </option>
+                      ))}
+                    </select>
+                    <div style={{
+                      fontSize: '8pt',
+                      color: '#666',
+                      marginTop: '4px',
+                      fontStyle: 'italic'
+                    }}>
+                      💡 Select your primary office location
+                    </div>
+                  </div>
+
+                  {officeType === 'RO' && officeAddresses.RO.locations && (
+                    <div style={{ marginBottom: '12px' }}>
+                      <label style={{
+                        fontSize: '9pt',
+                        fontWeight: '500',
+                        marginBottom: '5px',
+                        display: 'block'
+                      }}>
+                        Specific Location:
+                      </label>
+                      <select
+                        value={specificLocation}
+                        onChange={(e) => setSpecificLocation(e.target.value)}
+                        style={{
+                          width: '100%',
+                          padding: '8px',
+                          border: '1px solid #ccc',
+                          borderRadius: '2px',
+                          fontSize: '9pt'
+                        }}
+                      >
+                        <option value="">-- Select RO Location --</option>
+                        {Object.keys(officeAddresses.RO.locations).map((key) => (
+                          <option key={key} value={key}>
+                            {key.charAt(0) + key.slice(1).toLowerCase()}
+                          </option>
+                        ))}
+                      </select>
+                      <div style={{
+                        fontSize: '8pt',
+                        color: '#666',
+                        marginTop: '4px',
+                        fontStyle: 'italic'
+                      }}>
+                        (Select your Regional Office location)
+                      </div>
+                    </div>
+                  )}
+
+                  {officeType === 'PIBU' && officeAddresses.PIBU.locations && (
+                    <div style={{ marginBottom: '12px' }}>
+                      <label style={{
+                        fontSize: '9pt',
+                        fontWeight: '500',
+                        marginBottom: '5px',
+                        display: 'block'
+                      }}>
+                        Specific Location:
+                      </label>
+                      <select
+                        value={specificLocation}
+                        onChange={(e) => setSpecificLocation(e.target.value)}
+                        style={{
+                          width: '100%',
+                          padding: '8px',
+                          border: '1px solid #ccc',
+                          borderRadius: '2px',
+                          fontSize: '9pt'
+                        }}
+                      >
+                        <option value="">-- Select PIBU Location --</option>
+                        {Object.keys(officeAddresses.PIBU.locations).map((key) => (
+                          <option key={key} value={key}>
+                            {key.charAt(0) + key.slice(1).toLowerCase()}
+                          </option>
+                        ))}
+                      </select>
+                      <div style={{
+                        fontSize: '8pt',
+                        color: '#666',
+                        marginTop: '4px',
+                        fontStyle: 'italic'
+                      }}>
+                        (Select your PIBU location)
+                      </div>
+                    </div>
+                  )}
+
+                  <div style={{
+                    fontSize: '8pt',
+                    color: '#0078d4',
+                    backgroundColor: '#e6f2ff',
+                    padding: '8px 10px',
+                    borderRadius: '3px',
+                    marginTop: '10px'
+                  }}>
+                    💡 Tip: You can customize the address below after selecting
+                  </div>
+                </div>
+
+                {renderOfficeAddressField()}
+              </div>
+
+              <PrimaryButton
+                text={copyButtonText}
+                onClick={copySignature}
+                iconProps={{ iconName: copyButtonText.indexOf('Copied') !== -1 ? 'CheckMark' : 'Copy' }}
+                disabled={!areRequiredFieldsFilled()}
+                title={
+                  !areRequiredFieldsFilled()
+                    ? `⚠️ Please complete all required fields:\n${getMissingFields()
+                        .map((f) => `• ${f}`)
+                        .join('\n')}`
+                    : 'Copy signature to clipboard'
                 }
-              }}
-            />
-          </div>
-
-          {/* ===== Right Panel (Preview) ===== */}
-          <div className={styles.preview}>
-            <h3>Preview</h3>
-            <div
-              className={styles.previewBox}
-              dangerouslySetInnerHTML={{ __html: signatureHtml }}
-            />
-
-            <div className={styles.instructions}>
-              <h4>How to Install in Outlook:</h4>
-              <ol>
-                <li>Click &quot;Copy Signature&quot; button above</li>
-                <li>Open Outlook → File → Options → Mail → Signatures</li>
-                <li>Click &quot;New&quot; to create a new signature</li>
-                <li>Paste (Ctrl+V) into the signature editor</li>
-                <li>Click &quot;OK&quot; to save</li>
-              </ol>
+                styles={{
+                  root: {
+                    backgroundColor: copyButtonText.indexOf('Copied') !== -1 ? '#107c10' : '#0078d4',
+                    borderColor: copyButtonText.indexOf('Copied') !== -1 ? '#107c10' : '#0078d4',
+                    width: '100%',
+                    marginTop: '20px'
+                  },
+                  rootDisabled: {
+                    backgroundColor: '#f3f2f1',
+                    borderColor: '#c8c6c4',
+                    color: '#a19f9d'
+                  }
+                }}
+              />
             </div>
 
-            {renderSuccessCard()}
+            <div className={styles.preview}>
+              <h3>Preview</h3>
+              <div
+                className={styles.previewBox}
+                dangerouslySetInnerHTML={{ __html: signatureHtml }}
+              />
+
+              {renderSuccessCard()}
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* ===== Help Modal ===== */}
-      {renderHelpModal()}
+        {renderHelpModal()}
+      </div>
     </div>
-  </div>
-);
-
-};
-
-export default SedcSignatureGenerator;
+  );
+}
