@@ -247,7 +247,7 @@ public static generateTemplate4(data: SignatureData): string {
 
 
   return `
-    <table cellpadding="0" cellspacing="0" border="0" style="font-family: Arial, sans-serif; font-size: 10pt; color: #333333; border-collapse: collapse; width: 600px; table-layout: fixed;">
+    <table cellpadding="0" cellspacing="0" border="0" style="font-family: Aptos, Arial, sans-serif; font-size: 10pt; color: #333333; border-collapse: collapse; width: 600px; table-layout: fixed;">
       <tr>
         <td style="width: 130px; padding-right: 20px; border-right: 3px solid #00a651; vertical-align: top;">
           ${!hasPersonalSocials ? `
@@ -264,7 +264,7 @@ public static generateTemplate4(data: SignatureData): string {
                   <div style="border-top: 1px solid #e0e0e0; margin-bottom: 5px;"></div>
                   
                   <!-- Follow SEDC -->
-                  <div style="font-size: 8pt; color: #888888; line-height: 14px; text-align: left;">
+                  <div style="font-size: 8.5pt; color: #888888; line-height: 20px; text-align: center; width: 100%;">
                     <span style="display: inline-block; vertical-align: middle; margin-right: 3px;">Follow SEDC:</span>
                     <a href="https://www.facebook.com/sedcsarawak/" target="_blank" style="text-decoration: none; display: inline-block; vertical-align: middle; margin-right: 3px;">
                       <img src="https://cdn-icons-png.flaticon.com/512/733/733547.png" alt="Facebook" width="14" height="14" style="display: block;" />
@@ -284,24 +284,24 @@ public static generateTemplate4(data: SignatureData): string {
         
         <!-- Right column continues... -->
         
-        <td style="padding-left: 20px; vertical-align: top; min-width: 400px;">
+        <td style="padding-left: 20px; vertical-align: middle; min-width: 400px;">
           <!-- Name -->
-          <div style="font-size: 11pt; font-weight: bold; color: #00a651; margin-bottom: 3px;">
+          <div style="font-size: 12pt; font-weight: bold; color: #00a651; margin-bottom: 3px;">
             ${data.displayName}
           </div>
           
           <!-- Job Title -->
-          <div style="font-size: 10pt; color: #666666; margin-bottom: 2px;">
+          <div style="font-size: 11pt; color: #666666; margin-bottom: 2px;">
             ${data.jobTitle}
           </div>
           
           <!-- Unit and Department -->
-          <div style="font-size: 10pt; color: #999999; font-style: italic; margin-bottom: 10px;">
+          <div style="font-size: 11pt; color: #999999; font-style: italic; margin-bottom: 10px;">
             ${data.unit ? data.unit + ', ' : ''}${data.department || 'Group Digital and Technology'}
           </div>
           
           <!-- Contact Info (ALL lines) -->
-          <div style="font-size: 9pt; line-height: 16px;">
+          <div style="font-size: 10pt; line-height: 16px;">
             <div style="margin-bottom: 3px;">
               📧 <a href="mailto:${data.mail}" style="color: #00a651; text-decoration: none;">${data.mail}</a>
             </div>
@@ -321,12 +321,12 @@ public static generateTemplate4(data: SignatureData): string {
       ${hasPersonalSocials ? `
         <!-- Footer Row (separator + content in same row) -->
         <tr>
-          <td style="padding-right: 20px; padding-top: 10px; border-right: 3px solid #00a651; vertical-align: top;">
+          <td style="padding-right: 20px; padding-top: 10px; border-right: 3px solid #00a651; vertical-align: top; text-align: center;">
             <!-- Separator above footer -->
             <div style="border-top: 1px solid #e0e0e0; margin-bottom: 10px;"></div>
             
             <!-- Follow SEDC -->
-            <div style="font-size: 8.5pt; color: #888888; line-height: 20px;">
+            <div style="font-size: 8.5pt; color: #888888; line-height: 20px; text-align: center;">
               <span style="display: inline-block; vertical-align: middle; margin-right: 5px;">Follow SEDC:</span>
               <a href="https://www.facebook.com/sedcsarawak/" target="_blank" style="text-decoration: none; display: inline-block; vertical-align: middle; margin-right: 5px;">
                 <img src="https://cdn-icons-png.flaticon.com/512/733/733547.png" alt="Facebook" width="16" height="16" style="display: block;" />
