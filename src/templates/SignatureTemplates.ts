@@ -374,6 +374,28 @@ public static generateTemplate4(data: SignatureData): string {
         </tr>
       ` : ''}
     </table>
+     <!-- SEDC Standard Email Footer -->
+    <table style="width: 600px; margin: 20px 0 0 0; padding: 0; border-collapse: collapse; border-spacing: 0; font-family: Arial, sans-serif;">
+      <tr>
+        <td style="width: 600px; margin: 0; padding: 0;">
+          <a href="https://sedc.com.my" target="_blank" rel="noopener" style="display: block; text-decoration: none;">
+            <img src="https://sedc.com.my/SEDCEmailFooter/email_footer.png" 
+                 alt="SEDC Sarawak Footer" 
+                 width="600" 
+                 style="display: block; width: 600px; height: auto; margin: 0; padding: 0; border: none;">
+          </a>
+        </td>
+      </tr>
+      <tr>
+        <td style="width: 600px; padding: 10px 0; margin: 0; font-family: Aptos, Arial, sans-serif; font-size: 10.5px; color: #666; line-height: 1.5; text-align: justify;">
+          <strong>DISCLAIMER:</strong> This email and its attachments are confidential and intended only for the recipient(s). Any unauthorised use or disclosure is prohibited. Sarawak Economic Development Corporation and its affiliates will not be held accountable for any losses and/ or damages resulting from the use of this email and/ or its contents.
+          
+          <p style="margin: 5px 0 0 0; padding: 0; font-family: Aptos, Segoe UI, Arial, sans-serif; font-size: 9px; color: #0BAA4B; line-height: 1.3;">
+            <span style="font-style: normal;">🌳</span> <span style="font-style: italic;">Save Paper, Save Trees — Print Only If Essential</span>
+          </p>
+        </td>
+      </tr>
+    </table>
   `;
 }
 }
