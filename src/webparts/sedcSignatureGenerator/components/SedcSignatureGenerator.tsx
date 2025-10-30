@@ -64,7 +64,7 @@ const fieldPlaceholders: Record<string, string> = {
   const [editingField, setEditingField] = useState<string | null>(null);
   const [tempValue, setTempValue] = useState<string>('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-  const [showQuickStart, setShowQuickStart] = useState<boolean>(true);
+  const [showQuickStart, setShowQuickStart] = useState<boolean>(false);
   const [showHelpModal, setShowHelpModal] = useState<boolean>(false);
   const [showSuccessCard, setShowSuccessCard] = useState<boolean>(false);
   const [copyButtonText, setCopyButtonText] = useState<string>('Copy Signature');
@@ -143,6 +143,10 @@ const fieldPlaceholders: Record<string, string> = {
   useEffect(() => {
     loadUserProfile().catch((err) => console.error('Failed to load profile on mount:', err));
     generateSignature();
+  }, []);
+  // Auto-popup help modal on component mount
+  useEffect(() => {
+    setShowHelpModal(true);
   }, []);
 
 
@@ -313,7 +317,7 @@ const fieldPlaceholders: Record<string, string> = {
             minWidth: '130px', 
             display: 'flex', 
             alignItems: 'center',
-            fontSize: '9pt',
+            fontSize: '12pt',
             fontWeight: '500',
             color: '#333'
           }}>
@@ -344,7 +348,7 @@ const fieldPlaceholders: Record<string, string> = {
                   padding: '6px 8px',
                   border: '1px solid #ccc',
                   borderRadius: '2px',
-                  fontSize: '9pt'
+                  fontSize: '12pt'
                 }}
                 autoFocus
               />
@@ -385,7 +389,7 @@ const fieldPlaceholders: Record<string, string> = {
                 backgroundColor: '#f9f9f9', 
                 borderRadius: '2px',
                 border: '1px solid #e0e0e0',
-                fontSize: '9pt',
+                fontSize: '12pt',
                 color: value ? '#333' : '#999',
                 fontStyle: value ? 'normal' : 'italic'
               }}>
@@ -404,7 +408,7 @@ const fieldPlaceholders: Record<string, string> = {
         {hasError && (
           <div style={{ 
             color: '#d13438', 
-            fontSize: '8pt', 
+            fontSize: '11pt', 
             marginTop: '4px',
             marginLeft: '140px'
           }}>
@@ -547,41 +551,20 @@ const fieldPlaceholders: Record<string, string> = {
             }}
           >
             <span style={{
-              fontSize: '9pt',
-              fontWeight: '500',
+              fontSize: '12pt',
+              fontWeight: '600',
               color: '#00a651'
             }}>
-              💡 Quick Tips (click to {showQuickStart ? 'hide' : 'show'})
+              💡 Quick Tips {showQuickStart ? '▲' : '▼'}
             </span>
             
-            <a
-              href="#"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                setShowHelpModal(true);
-              }}
-              style={{
-                fontSize: '8pt',
-                color: '#00a651',
-                textDecoration: 'none',
-                padding: '2px 6px'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.textDecoration = 'underline';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.textDecoration = 'none';
-              }}
-            >
-              [? Help]
-            </a>
+
           </div>
 
           {showQuickStart && (
             <div style={{
               padding: '12px',
-              fontSize: '9pt',
+              fontSize: '11pt',
               color: '#333',
               lineHeight: '1.6'
             }}>
@@ -610,7 +593,7 @@ const fieldPlaceholders: Record<string, string> = {
                 color: '#666',
                 fontStyle: 'italic'
               }}>
-                Need detailed instructions? Click [? Help] above
+                Need detailed instructions? Click 📖 Help & Instructions above
               </div>
             </div>
           )}
@@ -744,26 +727,26 @@ const renderHelpModal = (): JSX.Element | null => {
         </div>
 
         {/* Content */}
-        <div style={{ padding: '20px', fontSize: '9pt', lineHeight: '1.6' }}>
+        <div style={{ padding: '20px', fontSize: '12pt', lineHeight: '1.6' }}>
           
           {/* Getting Started */}
-          <h3 style={{ fontSize: '11pt', color: '#0078d4', marginBottom: '10px' }}>
+          <h3 style={{ fontSize: '14pt', fontWeight: '600', color: '#0078d4', marginBottom: '20px' }}>
             Getting Started
           </h3>
           <hr style={{ border: 'none', borderTop: '1px solid #e0e0e0', marginBottom: '15px' }} />
 
           <div style={{ marginBottom: '20px' }}>
-            <h4 style={{ fontSize: '10pt', marginBottom: '8px' }}>1️⃣ Auto-fill Your Information</h4>
-            <p style={{ marginLeft: '20px', color: '#666' }}>
+            <h4 style={{ fontSize: '12pt', marginBottom: '8px' }}>1️⃣ Auto-fill Your Information</h4>
+            <p style={{ marginLeft: '20px', color: '#666', fontSize: '12pt'}}>
               Click <strong>[Auto-fill]</strong> button to automatically load your name, email, and other available details from your SEDC profile.
             </p>
           </div>
 
           <div style={{ marginBottom: '20px' }}>
-            <h4 style={{ fontSize: '10pt', marginBottom: '8px' }}>2️⃣ Review, Add, and Edit Your Details</h4>
+            <h4 style={{ fontSize: '12pt', marginBottom: '8px' }}>2️⃣ Review, Add, and Edit Your Details</h4>
             <ul style={{ color: '#666' }}>
               <li>Click ✏️ next to any field to edit it</li>
-              <li>Fields marked <span style={{ backgroundColor: '#fff4ce', color: '#856404', padding: '1px 4px', borderRadius: '2px', fontSize: '7pt' }}>Req</span> are required</li>
+              <li>Fields marked <span style={{ backgroundColor: '#fff4ce', color: '#856404', padding: '1px 4px', borderRadius: '2px', fontSize: '9pt' }}>Req</span> are required</li>
               <li>Use 🔄 to refresh from SEDC Profile</li>
               <li>Use 🗑️ to clear optional fields</li>
               <li>Add information like Personal Mobile manually if needed</li>
@@ -771,7 +754,7 @@ const renderHelpModal = (): JSX.Element | null => {
           </div>
 
           <div style={{ marginBottom: '20px' }}>
-            <h4 style={{ fontSize: '10pt', marginBottom: '8px' }}>3️⃣ Select Your Office Location</h4>
+            <h4 style={{ fontSize: '12pt', marginBottom: '8px' }}>3️⃣ Select Your Office Location</h4>
             <ul style={{ color: '#666' }}>
               <li>Choose your office type from the dropdown</li>
               <li>Select specific location if you&apos;re in RO or PIBU</li>
@@ -780,7 +763,7 @@ const renderHelpModal = (): JSX.Element | null => {
           </div>
 
           <div style={{ marginBottom: '30px' }}>
-            <h4 style={{ fontSize: '10pt', marginBottom: '8px' }}>4️⃣ Copy Your Signature</h4>
+            <h4 style={{ fontSize: '12pt', marginBottom: '8px' }}>4️⃣ Copy Your Signature</h4>
             <ul style={{ color: '#666' }}>
               <li>Click <strong>[Copy Signature]</strong> when all required fields are filled</li>
               <li>Your signature will be copied to clipboard</li>
@@ -789,7 +772,7 @@ const renderHelpModal = (): JSX.Element | null => {
           </div>
 
           {/* Adding to Outlook */}
-          <h3 style={{ fontSize: '11pt', color: '#0078d4', marginBottom: '10px' }}>
+          <h3 style={{ fontSize: '14pt', fontWeight: '600', color: '#0078d4', marginBottom: '20px' }}>
             📧 Adding Signature to Outlook
           </h3>
           <hr style={{ border: 'none', borderTop: '1px solid #e0e0e0', marginBottom: '15px' }} />
@@ -802,7 +785,7 @@ const renderHelpModal = (): JSX.Element | null => {
             padding: '15px',
             marginBottom: '15px'
           }}>
-            <h4 style={{ fontSize: '10pt', marginBottom: '10px', color: '#333' }}>
+            <h4 style={{ fontSize: '12pt', marginBottom: '10px', color: '#333' }}>
               Outlook Web (outlook.office.com)
             </h4>
             <ol style={{ color: '#666' }}>
@@ -823,7 +806,7 @@ const renderHelpModal = (): JSX.Element | null => {
             padding: '15px',
             marginBottom: '20px'
           }}>
-            <h4 style={{ fontSize: '10pt', marginBottom: '10px', color: '#333' }}>
+            <h4 style={{ fontSize: '12pt', marginBottom: '10px', color: '#333' }}>
               Outlook Desktop (Windows/Mac)
             </h4>
             <ol style={{ color: '#666' }}>
@@ -837,7 +820,7 @@ const renderHelpModal = (): JSX.Element | null => {
           </div>
 
           {/* Tips & Troubleshooting */}
-          <h3 style={{ fontSize: '11pt', color: '#0078d4', marginBottom: '10px' }}>
+          <h3 style={{ fontSize: '14pt', fontWeight: '600', color: '#0078d4', marginBottom: '20px' }}>
             💡 Tips & Troubleshooting
           </h3>
           <hr style={{ border: 'none', borderTop: '1px solid #e0e0e0', marginBottom: '15px' }} />
@@ -934,7 +917,7 @@ const renderHelpModal = (): JSX.Element | null => {
             fontSize: '8pt',
             color: '#0078d4'
           }}>
-            Need detailed instructions? → Click <strong>[? Help]</strong> button above
+            Need detailed instructions? → Click <strong>📖 Help & Instructions</strong> button above
           </div>
         </div>
       </div>
@@ -959,17 +942,28 @@ const renderHelpModal = (): JSX.Element | null => {
         <h2 style={{ margin: 0, fontSize: '14pt', color: '#333' }}>
           SEDC Email Signature Generator
         </h2>
-        <img 
-          src="https://sedc.com.my/wp-content/uploads/2025/08/SEDC-new-logo-2025-scaled.png" 
-          alt="SEDC Logo" 
-          style={{ 
-            height: '40px',
-            width: 'auto'
-          }} 
+
+        {/* Header Help Button */}
+        <PrimaryButton
+          text="📖 Help & Instructions"
+          onClick={() => setShowHelpModal(true)}
+          styles={{
+            root: {
+              fontSize: '11pt',
+              padding: '10px 20px',
+              height: 'auto',
+              backgroundColor: '#0078d4',
+              borderColor: '#0078d4'
+            },
+            rootHovered: {
+              backgroundColor: '#106ebe',
+              borderColor: '#106ebe'
+            }
+          }}
         />
+
       </div>
         {renderQuickStartGuide()}
-
         {error && (
           <MessageBar messageBarType={MessageBarType.error} onDismiss={() => setError(null)}>
             {error}
@@ -998,7 +992,7 @@ const renderHelpModal = (): JSX.Element | null => {
                   alignItems: 'center',
                   marginBottom: '10px'
                 }}>
-                  <h3 style={{ margin: 0 }}>User Information</h3>
+                  <h3 style={{ margin: 0, fontSize: '12pt' }}>User Information</h3>
                   <DefaultButton
                     text="Auto-fill"
                     iconProps={{ iconName: 'Refresh' }}
@@ -1043,7 +1037,7 @@ const renderHelpModal = (): JSX.Element | null => {
                       marginBottom: '15px'
                     }}>
                       <div style={{
-                        fontSize: '10pt',
+                        fontSize: '12pt',
                         fontWeight: '600',
                         marginBottom: '12px',
                         color: '#333'
@@ -1065,7 +1059,7 @@ const renderHelpModal = (): JSX.Element | null => {
                       marginBottom: '15px'
                     }}>
                       <div style={{
-                        fontSize: '10pt',
+                        fontSize: '12pt',
                         fontWeight: '600',
                         marginBottom: '12px',
                         color: '#333'
@@ -1081,7 +1075,7 @@ const renderHelpModal = (): JSX.Element | null => {
                 ) : (
                   <>
                     <div style={{
-                      fontSize: '8pt',
+                      fontSize: '11pt',
                       color: '#0078d4',
                       backgroundColor: '#e6f2ff',
                       padding: '8px 10px',
@@ -1099,7 +1093,7 @@ const renderHelpModal = (): JSX.Element | null => {
                       marginBottom: '15px'
                     }}>
                       <div style={{
-                        fontSize: '10pt',
+                        fontSize: '12pt',
                         fontWeight: '600',
                         marginBottom: '12px',
                         color: '#333'
@@ -1119,7 +1113,7 @@ const renderHelpModal = (): JSX.Element | null => {
                       marginBottom: '15px'
                     }}>
                       <div style={{
-                        fontSize: '10pt',
+                        fontSize: '12pt',
                         fontWeight: '600',
                         marginBottom: '12px',
                         color: '#333'
@@ -1149,7 +1143,7 @@ const renderHelpModal = (): JSX.Element | null => {
                       color: '#856404',
                       padding: '1px 4px',
                       borderRadius: '2px',
-                      fontSize: '7pt',
+                      fontSize: '9pt',
                       fontWeight: '500',
                       marginRight: '4px'
                     }}>
@@ -1170,7 +1164,7 @@ const renderHelpModal = (): JSX.Element | null => {
                   marginBottom: '15px'
                 }}>
                   <div style={{
-                    fontSize: '10pt',
+                    fontSize: '12pt',
                     fontWeight: '600',
                     marginBottom: '12px',
                     color: '#333'
@@ -1180,7 +1174,7 @@ const renderHelpModal = (): JSX.Element | null => {
 
                   <div style={{ marginBottom: '12px' }}>
                     <label style={{
-                      fontSize: '9pt',
+                      fontSize: '12pt',
                       fontWeight: '500',
                       marginBottom: '5px',
                       display: 'block'
@@ -1198,7 +1192,7 @@ const renderHelpModal = (): JSX.Element | null => {
                         padding: '8px',
                         border: '1px solid #ccc',
                         borderRadius: '2px',
-                        fontSize: '9pt'
+                        fontSize: '12pt'
                       }}
                     >
                       <option value="">-- Select Office Type --</option>
@@ -1209,7 +1203,7 @@ const renderHelpModal = (): JSX.Element | null => {
                       ))}
                     </select>
                     <div style={{
-                      fontSize: '8pt',
+                      fontSize: '11pt',
                       color: '#666',
                       marginTop: '4px',
                       fontStyle: 'italic'
@@ -1221,7 +1215,7 @@ const renderHelpModal = (): JSX.Element | null => {
                   {officeType === 'RO' && officeAddresses.RO.locations && (
                     <div style={{ marginBottom: '12px' }}>
                       <label style={{
-                        fontSize: '9pt',
+                        fontSize: '12pt',
                         fontWeight: '500',
                         marginBottom: '5px',
                         display: 'block'
@@ -1236,7 +1230,7 @@ const renderHelpModal = (): JSX.Element | null => {
                           padding: '8px',
                           border: '1px solid #ccc',
                           borderRadius: '2px',
-                          fontSize: '9pt'
+                          fontSize: '12pt'
                         }}
                       >
                         <option value="">-- Select RO Location --</option>
@@ -1247,7 +1241,7 @@ const renderHelpModal = (): JSX.Element | null => {
                         ))}
                       </select>
                       <div style={{
-                        fontSize: '8pt',
+                        fontSize: '12pt',
                         color: '#666',
                         marginTop: '4px',
                         fontStyle: 'italic'
@@ -1260,7 +1254,7 @@ const renderHelpModal = (): JSX.Element | null => {
                   {officeType === 'PIBU' && officeAddresses.PIBU.locations && (
                     <div style={{ marginBottom: '12px' }}>
                       <label style={{
-                        fontSize: '9pt',
+                        fontSize: '12pt',
                         fontWeight: '500',
                         marginBottom: '5px',
                         display: 'block'
@@ -1275,7 +1269,7 @@ const renderHelpModal = (): JSX.Element | null => {
                           padding: '8px',
                           border: '1px solid #ccc',
                           borderRadius: '2px',
-                          fontSize: '9pt'
+                          fontSize: '12pt'
                         }}
                       >
                         <option value="">-- Select PIBU Location --</option>
@@ -1286,7 +1280,7 @@ const renderHelpModal = (): JSX.Element | null => {
                         ))}
                       </select>
                       <div style={{
-                        fontSize: '8pt',
+                        fontSize: '11pt',
                         color: '#666',
                         marginTop: '4px',
                         fontStyle: 'italic'
@@ -1297,7 +1291,7 @@ const renderHelpModal = (): JSX.Element | null => {
                   )}
 
                   <div style={{
-                    fontSize: '8pt',
+                    fontSize: '11pt',
                     color: '#0078d4',
                     backgroundColor: '#e6f2ff',
                     padding: '8px 10px',
@@ -1352,6 +1346,41 @@ const renderHelpModal = (): JSX.Element | null => {
         )}
 
         {renderHelpModal()}
+
+      {/* FAB Help Button - Bottom Right */}
+      <div
+        onClick={() => setShowHelpModal(true)}
+        style={{
+          position: 'fixed',
+          bottom: '30px',
+          right: '30px',
+          width: '56px',
+          height: '56px',
+          borderRadius: '50%',
+          backgroundColor: '#00a651',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          cursor: 'pointer',
+          boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)',
+          transition: 'all 0.3s ease',
+          zIndex: 1000
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.backgroundColor = '#008a43';
+          e.currentTarget.style.transform = 'scale(1.1)';
+          e.currentTarget.style.boxShadow = '0 6px 12px rgba(0, 0, 0, 0.3)';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.backgroundColor = '#00a651';
+          e.currentTarget.style.transform = 'scale(1)';
+          e.currentTarget.style.boxShadow = '0 4px 8px rgba(0, 0, 0, 0.2)';
+        }}
+        title="Help & Instructions"
+      >
+        <span style={{ fontSize: '28px', color: 'white', fontWeight: 'bold' }}>?</span>
+      </div>
+
       </div>
     </div>
   );
